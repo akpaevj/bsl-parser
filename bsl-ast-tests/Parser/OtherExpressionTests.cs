@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using BSL.AST.Parsing.Nodes.Expressions.Literals;
 using BSL.AST.Parsing.Nodes;
+using BSL.AST.Parsing.Nodes.Expressions.Arithmetic;
 
 namespace BSL.AST.Tests.Parser
 {
@@ -16,97 +17,70 @@ namespace BSL.AST.Tests.Parser
 		[Fact]
 		public void SimpleInvocationExpressionTest()
 		{
-			var source = "МояМеременная();";
-
-			var statement = TestHelper.ExactSingleStatementNodeTest<ExpressionStatementNode>(source);
-			Assert.IsType<InvocationExpressionNode>(statement.Expression);
+			var source = "МояМеременная()";
+			TestHelper.ExpressionNodeTest<InvocationExpressionNode>(source);
 		}
 
 		[Fact]
 		public void InvocationExpressionTest()
 		{
-			var source = "МояМеременная(1, \"2\");";
+			var source = "МояМеременная(1, \"2\")";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<ExpressionStatementNode>(source);
-			var invocation = Assert.IsType<InvocationExpressionNode>(statement.Expression);
-			Assert.Equal(2, invocation.Arguments.Items.Count);
+			TestHelper.ExpressionNodeTest<InvocationExpressionNode>(source, node =>
+			{
+				Assert.Equal(2, node.Arguments.Items.Count);
+			});
 		}
 
 		[Fact]
 		public void SkippedArgumentsInvocationExpressionTest()
 		{
-			var source = "МояМеременная(1, , , \"2\");";
+			var source = "МояМеременная(1, , , \"2\")";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<ExpressionStatementNode>(source);
-			var invocation = Assert.IsType<InvocationExpressionNode>(statement.Expression);
-			Assert.Equal(4, invocation.Arguments.Items.Count);
+			TestHelper.ExpressionNodeTest<InvocationExpressionNode>(source, node =>
+			{
+				Assert.Equal(4, node.Arguments.Items.Count);
+			});
 		}
 
 		[Fact]
 		public void ElementAccessExpressionTest()
-		{
-			var source = "А = МояМеременная[1];";
-
-			var assignment = TestHelper.ExactSingleStatementNodeTest<AssignmentStatementNode>(source);
-			var access = Assert.IsType<ElementAccessExpressionNode>(assignment.Expression);
-			Assert.IsType<NumberLiteralExpressionNode>(access.Argument);
-		}
+			=> TestHelper.ExpressionNodeTest<ElementAccessExpressionNode>("МояМеременная[1]", expression =>
+			{
+				Assert.IsType<NumberLiteralExpressionNode>(expression.Argument);
+			});
 
 		[Fact]
 		public void ComplexExpressionTest()
-		{
-			var source = "А = Объект.Реквизит.МетодОбъектаРеквизита() + 1;";
-
-			TestHelper.ModuleNodeTest(source);
-		}
+			=> TestHelper.ExpressionNodeTest<AddExpressionNode>("Объект.Реквизит.МетодОбъектаРеквизита() + 1");
 
 		[Fact]
 		public void NewObjectExpressionTest()
 		{
-			var source = "А = Новый Объект();";
+			var source = "Новый Объект()";
 
-			var assignment = TestHelper.ExactSingleStatementNodeTest<AssignmentStatementNode>(source);
-			var newObject = Assert.IsType<NewObjectExpressionNode>(assignment.Expression);
-			Assert.False(newObject.FunctionalForm);
+			TestHelper.ExpressionNodeTest<NewObjectExpressionNode>(source, node =>
+			{
+				Assert.False(node.FunctionalForm);
+			});
 		}
 
 		[Fact]
 		public void FunctionalNewObjectExpressionTest()
 		{
-			var source = "А = Новый(Тип(\"Какойто\"), МассивПараметров);";
+			var source = "Новый(Тип(\"Какойто\"), МассивПараметров)";
 
-			var assignment = TestHelper.ExactSingleStatementNodeTest<AssignmentStatementNode>(source);
-			var newObject = Assert.IsType<NewObjectExpressionNode>(assignment.Expression);
-			Assert.True(newObject.FunctionalForm);
-		}
-
-		[Fact]
-		public void InvalidNewObjectExpressionTest()
-		{
-			var source = "А = Новый Объект().Привет();";
-			TestHelper.ModuleNodeTest(source, true);
+			TestHelper.ExpressionNodeTest<NewObjectExpressionNode>(source, node =>
+			{
+				Assert.True(node.FunctionalForm);
+			});
 		}
 
 		[Fact]
 		public void ConditionalExpressionTest()
 		{
-			var source = "А = ?(ИСТИНА, ИСТИНА, ЛОЖЬ);";
-
-			var assignment = TestHelper.ExactSingleStatementNodeTest<AssignmentStatementNode>(source);
-			Assert.IsType<ConditionalExpressionNode>(assignment.Expression);
-		}
-
-		[Fact]
-		public void AwaitExpressionTest()
-		{
-			var source =
-				@"Асинх Процедура МояПроцедура()
-					Ждать Привет();
-				КонецПроцедуры";
-
-			var method = TestHelper.ExactSingleStatementNodeTest<MethodNode>(source);
-			var statement = Assert.IsType<ExpressionStatementNode>(method.Body.Statements.First());
-			Assert.IsType<AwaitExpressionNode>(statement.Expression);
+			var source = "?(ИСТИНА, ИСТИНА, ЛОЖЬ)";
+			TestHelper.ExpressionNodeTest<ConditionalExpressionNode>(source);
 		}
 
 		[Fact]
@@ -117,7 +91,7 @@ namespace BSL.AST.Tests.Parser
 					Ждать Привет();
 				КонецПроцедуры";
 
-			TestHelper.ModuleNodeTest(source, true);
+			TestHelper.MethodNodeTest(source, null, true);
 		}
 
 		[Fact]
@@ -125,7 +99,7 @@ namespace BSL.AST.Tests.Parser
 		{
 			var source = "ПредметОбъект.УстановитьСтатус(\"Подтвержден\", );";
 
-			TestHelper.ExactSingleStatementNodeTest<ExpressionStatementNode>(source);
+			TestHelper.StatementNodeTest<ExpressionStatementNode>(source);
 		}
 	}
 }

@@ -7,6 +7,7 @@ using BSL.AST.Parsing.Nodes.Expressions.Literals;
 using BSL.AST.Parsing.Nodes.Expressions.Logical;
 using BSL.AST.Parsing.Nodes.Statements;
 using BSL.AST.Parsing.Preprocessing;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Data;
@@ -27,7 +28,7 @@ namespace BSL.AST.Parsing
 
 		private int _currentTokenIndex = 0;
 		private IReadOnlyList<BslToken> _tokens = null!;
-		private readonly BslParserState _state = new();
+		private BslParserState _state = new();
 
 		private readonly List<Diagnostic> _diagnostics = [];
         public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics;
@@ -38,85 +39,252 @@ namespace BSL.AST.Parsing
 				builder.LanguageKind = BslKind.OneScript;
 			});
 
-		public ModuleNode ParseModule(ReadOnlySpan<char> source)
+		public List<ModuleNode> ParseApplicationModule(ReadOnlySpan<char> source)
 		{
-			return ParseModule(source, new BslParserOptions());
-		}
+			var compileContexts = BslCompileContexts.ThinClient | BslCompileContexts.WebClient | BslCompileContexts.ThickClientManagedApplication;
 
-		public ModuleNode ParseModule(ReadOnlySpan<char> source, Action<BslParserOptions> optionsBuilder)
-		{
-			var options = new BslParserOptions();
-			optionsBuilder(options);
-
-			return ParseModule(source, options);
-		}
-
-		public ModuleNode ParseModule(ReadOnlySpan<char> source, BslParserOptions options)
-        {
-			_options = options;
-
-			if (_options.LanguageKind == BslKind.OneScript)
-				_state.IsOneScript = true;
-
-			var lexer = new BslLexer();
-            _tokens = lexer.Tokenize(source);
-
-            return Module();
-        }
-
-		private ModuleNode Module()
-        {
-			var module = new ModuleNode();
-			_state.CurrentModule = module;
-
-			while (true)
+			var modules = new List<ModuleNode>()
 			{
-				var attributes = ReadAttributes(module);
-
-				var peek = PeekTokenType();
-
-				if (peek == TokenType.EOF)
+				ParseModule(source, options =>
 				{
-					HandleTokenTrivias(PeekToken());
-					break;
-				}
-
-				try
+					options.CompileContexts = compileContexts;
+					options.ActualContext = BslCompileContexts.ThinClient;
+					options.VariableDeclarationsSectionAllowed = false;
+					options.MainProgramSectionAllowed = false;
+				}),
+				ParseModule(source, options =>
 				{
-					BslNode? child = peek switch
-					{
-						TokenType.VAR => VariableDeclarationStatement(module, attributes),
-						TokenType.PROCEDURE or TokenType.FUNCTION => Method(module, attributes, false),
-						var type when type == TokenType.IDENTIFIER && NextIdentifierIsBilingualValue("АСИНХ", "ASYNC") => Method(module, attributes, true),
-						var _ when attributes.Count > 0 => null,
-						_ => Statement(module)
-					};
-
-					if (child == null)
-					{
-						module.Children.AddRange(attributes);
-						_diagnostics.Add(SyntaxDiagnosticsFactory.MethodDefinitionExpected(PeekToken().Position));
-					}
-					else
-						module.Children.Add(child);
-				}
-				catch (BslSyntaxErrorException ex)
+					options.CompileContexts = compileContexts;
+					options.ActualContext = BslCompileContexts.WebClient;
+					options.VariableDeclarationsSectionAllowed = false;
+					options.MainProgramSectionAllowed = false;
+				}),
+				ParseModule(source, options =>
 				{
-					_diagnostics.Add(ex.Error);
-					SkipTill(module, TokenType.SEMICOLON);
-				}
+					options.CompileContexts = compileContexts;
+					options.ActualContext = BslCompileContexts.ThickClientManagedApplication;
+					options.VariableDeclarationsSectionAllowed = false;
+					options.MainProgramSectionAllowed = false;
+				})
+			};
+
+			return modules;
+		}
+
+		public List<ModuleNode> ParseFormModule(ReadOnlySpan<char> source)
+		{
+			var compileContexts = BslCompileContexts.Client | BslCompileContexts.Server;
+
+			var modules = new List<ModuleNode>()
+			{
+				ParseModule(source, options =>
+				{
+					options.CompileContexts = compileContexts;
+					options.ActualContext = BslCompileContexts.Client;
+					options.VariableDeclarationsSectionAllowed = true;
+					options.MainProgramSectionAllowed = true;
+				}),
+				ParseModule(source, options =>
+				{
+					options.CompileContexts = compileContexts;
+					options.ActualContext = BslCompileContexts.Server;
+					options.VariableDeclarationsSectionAllowed = true;
+					options.MainProgramSectionAllowed = true;
+				})
+			};
+
+			return modules;
+		}
+
+		public List<ModuleNode> ParseCommandModule(ReadOnlySpan<char> source)
+		{
+			var compileContexts = BslCompileContexts.Client | BslCompileContexts.Server;
+
+			var modules = new List<ModuleNode>()
+			{
+				ParseModule(source, options =>
+				{
+					options.CompileContexts = compileContexts;
+					options.ActualContext = BslCompileContexts.Client;
+					options.VariableDeclarationsSectionAllowed = false;
+					options.MainProgramSectionAllowed = false;
+				}),
+				ParseModule(source, options =>
+				{
+					options.CompileContexts = compileContexts;
+					options.ActualContext = BslCompileContexts.Server;
+					options.VariableDeclarationsSectionAllowed = false;
+					options.MainProgramSectionAllowed = false;
+				})
+			};
+
+			return modules;
+		}
+
+		public ModuleNode ParseExternalConnectionModule(ReadOnlySpan<char> source)
+			=> ParseModule(source, options =>
+			{
+				options.ActualContext = BslCompileContexts.ExternalConnection;
+				options.CompileContexts = BslCompileContexts.ExternalConnection;
+				options.VariableDeclarationsSectionAllowed = false;
+				options.MainProgramSectionAllowed = false;
+			});
+
+		public ModuleNode ParseSeanceModule(ReadOnlySpan<char> source)
+			=> ParseModule(source, options =>
+			{
+				options.ActualContext = BslCompileContexts.Server;
+				options.CompileContexts = BslCompileContexts.Server;
+				options.VariableDeclarationsSectionAllowed = false;
+				options.MainProgramSectionAllowed = false;
+			});
+
+		public ModuleNode ParseObjectModule(ReadOnlySpan<char> source)
+			=> ParseModule(source, options =>
+			{
+				options.ActualContext = BslCompileContexts.Server;
+				options.CompileContexts = BslCompileContexts.Server;
+				options.VariableDeclarationsSectionAllowed = true;
+				options.MainProgramSectionAllowed = true;
+			});
+
+		public ModuleNode ParseManagerModule(ReadOnlySpan<char> source)
+			=> ParseModule(source, options =>
+			{
+				options.ActualContext = BslCompileContexts.Server;
+				options.CompileContexts = BslCompileContexts.Server;
+				options.VariableDeclarationsSectionAllowed = false;
+				options.MainProgramSectionAllowed = false;
+			});
+
+		public List<ModuleNode> ParseCommonModule(ReadOnlySpan<char> source, CommonModuleSettings settings)
+		{
+			var modules = new List<ModuleNode>();
+
+			var compileContexts = BslCompileContexts.None;
+
+			if (settings.Client)
+				compileContexts |= BslCompileContexts.Client;
+
+			if (settings.Server)
+				compileContexts |= BslCompileContexts.Server;
+
+			if (settings.ExternalConnection)
+				compileContexts |= BslCompileContexts.ExternalConnection;
+
+			if (settings.Client)
+				modules.Add(ParseModule(source, builder =>
+				{
+					builder.CompileContexts = compileContexts;
+					builder.ActualContext = BslCompileContexts.Client;
+					builder.VariableDeclarationsSectionAllowed = false;
+					builder.MainProgramSectionAllowed = false;
+					builder.LanguageKind = BslKind.OneC;
+				}));
+
+			if (settings.Server)
+				modules.Add(ParseModule(source, builder =>
+				{
+					builder.CompileContexts = compileContexts;
+					builder.ActualContext = BslCompileContexts.Server;
+					builder.VariableDeclarationsSectionAllowed = false;
+					builder.MainProgramSectionAllowed = false;
+					builder.LanguageKind = BslKind.OneC;
+				}));
+
+			if (settings.ExternalConnection)
+				modules.Add(ParseModule(source, builder =>
+				{
+					builder.CompileContexts = compileContexts;
+					builder.ActualContext = BslCompileContexts.ExternalConnection;
+					builder.VariableDeclarationsSectionAllowed = false;
+					builder.MainProgramSectionAllowed = false;
+					builder.LanguageKind = BslKind.OneC;
+				}));
+
+			return modules;
+		}
+
+		public ExpressionNode ParseExpression(ReadOnlySpan<char> source, BslKind bslKind = BslKind.OneScript)
+		{
+			_options = new BslParserOptions() 
+			{
+				CompileContexts = BslCompileContexts.All,
+				ActualContext = BslCompileContexts.All,
+				VariableDeclarationsSectionAllowed = false,
+				MainProgramSectionAllowed = false,
+				ProceduresAndFunctionsSectionAllowed = false,
+				LanguageKind = bslKind
+			};
+			_state = new();
+			_currentTokenIndex = 0;
+
+			var lexer = new BslLexer(new BslLexerOptions()
+			{
+				CompileContexts = _options.CompileContexts,
+				LanguageKind = _options.LanguageKind
+			});
+
+			_tokens = lexer.Tokenize(source);
+
+			try
+			{
+				return Expression(null!);
+			}
+			catch (BslSyntaxErrorException ex)
+			{
+				_diagnostics.Add(ex.Error);
 			}
 
+			return new ExpressionNode(null!);
+		}
 
-			foreach (var region in _state.Regions)
-				_diagnostics.Add(SyntaxDiagnosticsFactory.EndRegionExpected(region.StartTrivia.Position));
-
-			return module;
-        }
-
-		internal IfElseIfDirectiveNode ParseIfElseIfDirective(ReadOnlySpan<char> source)
+		public BlockNode ParseCodeBlock(ReadOnlySpan<char> source, BslKind bslKind = BslKind.OneScript)
 		{
-			var lexer = new BslLexer();
+			_options = new BslParserOptions()
+			{
+				CompileContexts = BslCompileContexts.All,
+				ActualContext = BslCompileContexts.All,
+				VariableDeclarationsSectionAllowed = false,
+				MainProgramSectionAllowed = false,
+				ProceduresAndFunctionsSectionAllowed = false,
+				LanguageKind = bslKind
+			};
+			_state = new();
+			_currentTokenIndex = 0;
+
+			var lexer = new BslLexer(new BslLexerOptions()
+			{
+				CompileContexts = _options.CompileContexts,
+				LanguageKind = _options.LanguageKind
+			});
+
+			_tokens = lexer.Tokenize(source);
+
+			try
+			{
+				return Block(null!);
+			}
+			catch (BslSyntaxErrorException ex)
+			{
+				_diagnostics.Add(ex.Error);
+			}
+
+			return new BlockNode(null!);
+		}
+
+		internal IfElseIfDirectiveNode ParseIfElseIfDirective(ReadOnlySpan<char> source, BslParserOptions options)
+		{
+			_options = options;
+			_state = new();
+			_currentTokenIndex = 0;
+
+			var lexer = new BslLexer(new BslLexerOptions()
+			{
+				CompileContexts = options.CompileContexts,
+				LanguageKind = options.LanguageKind
+			});
+
 			_tokens = lexer.Tokenize(source);
 
 			var node = new IfElseIfDirectiveNode()
@@ -135,6 +303,31 @@ namespace BSL.AST.Parsing
 			}
 
 			return node;
+		}
+
+		private ModuleNode ParseModule(ReadOnlySpan<char> source, Action<BslParserOptions> optionsBuilder)
+		{
+			_options = new BslParserOptions();
+			optionsBuilder(_options);
+
+			_state = new();
+			_currentTokenIndex = 0;
+
+			var lexer = new BslLexer(new BslLexerOptions()
+			{
+				CompileContexts = _options.CompileContexts,
+				LanguageKind = _options.LanguageKind
+			});
+
+			_tokens = lexer.Tokenize(source);
+
+			var module = Module();
+			module.Regions.AddRange(lexer.Regions);
+			module.Usings.AddRange(lexer.Usings);
+			module.Inserts.AddRange(lexer.Inserts);
+			module.Deletes.AddRange(lexer.Deletes);
+
+			return module;
 		}
 
 		#region Statements
@@ -160,7 +353,7 @@ namespace BSL.AST.Parsing
 				{
 					SemicolonToken = ReadToken()
 				},
-				_ => throw new BslSyntaxErrorException(SyntaxDiagnosticsFactory.StatementExpected(PeekToken().Position))
+				_ => throw new BslSyntaxErrorException(SyntaxDiagnosticsFactory.StatementExpected(PeekToken(out var _).Position))
 			};
 
 		private VariableDeclarationStatementNode VariableDeclarationStatement(BslNode parent, List<AttributeNode> attributes)
@@ -505,7 +698,7 @@ namespace BSL.AST.Parsing
 					TokenType.NEW => NewObjectExpression(parent),
 					TokenType.QUESTION_MARK => ConditionalExpression(parent),
 					TokenType.NOT => NotExpression(parent),
-					_ => throw new BslSyntaxErrorException(SyntaxDiagnosticsFactory.ExpressionExpected(PeekToken().Position))
+					_ => throw new BslSyntaxErrorException(SyntaxDiagnosticsFactory.ExpressionExpected(PeekToken(out var _).Position))
 				};
 		}
 
@@ -536,7 +729,7 @@ namespace BSL.AST.Parsing
 				TokenType.MULTIPLY => new MultiplyExpressionNode(parent),
 				TokenType.DIVIDE => new DivideExpressionNode(parent),
 				TokenType.MODULO => new ModuloExpressionNode(parent),
-				_ => throw new BslSyntaxErrorException(SyntaxDiagnosticsFactory.BinaryExpressionExpected(PeekToken().Position))
+				_ => throw new BslSyntaxErrorException(SyntaxDiagnosticsFactory.BinaryExpressionExpected(PeekToken(out var _).Position))
 			};
 
 			node.Left = left;
@@ -738,7 +931,7 @@ namespace BSL.AST.Parsing
 				node.Arguments = Arguments(node);
 
 			if (node.IdentifierToken == null && node.Arguments == null)
-				throw new BslSyntaxErrorException(SyntaxDiagnosticsFactory.NewObjectArgumentsExpected(PeekToken().Position));
+				throw new BslSyntaxErrorException(SyntaxDiagnosticsFactory.NewObjectArgumentsExpected(PeekToken(out var _).Position));
 
 			if (_options.LanguageKind == BslKind.OneScript)
 				return PostExpressionNode(parent, node);
@@ -782,6 +975,48 @@ namespace BSL.AST.Parsing
 		#endregion
 
 		#region Other nodes
+
+		private ModuleNode Module()
+		{
+			var module = new ModuleNode();
+
+			while (true)
+			{
+				var attributes = Attributes(module);
+
+				var peek = PeekTokenType();
+
+				if (peek == TokenType.EOF)
+					break;
+
+				try
+				{
+					BslNode? child = peek switch
+					{
+						TokenType.VAR => VariableDeclarationStatement(module, attributes),
+						TokenType.PROCEDURE or TokenType.FUNCTION => Method(module, attributes, false),
+						var type when type == TokenType.IDENTIFIER && NextIdentifierIsBilingualValue("АСИНХ", "ASYNC") => Method(module, attributes, true),
+						var _ when attributes.Count > 0 => null,
+						_ => Statement(module)
+					};
+
+					if (child == null)
+					{
+						module.Children.AddRange(attributes);
+						_diagnostics.Add(SyntaxDiagnosticsFactory.MethodDefinitionExpected(PeekToken(out var _).Position));
+					}
+					else
+						module.Children.Add(child);
+				}
+				catch (BslSyntaxErrorException ex)
+				{
+					_diagnostics.Add(ex.Error);
+					SkipTill(module, TokenType.SEMICOLON);
+				}
+			}
+
+			return module;
+		}
 
 		private ArgumentsNode Arguments(BslNode parent)
 		{
@@ -865,7 +1100,7 @@ namespace BSL.AST.Parsing
 			var node = new ParameterNode(parent);
 
 			if (_options.LanguageKind == BslKind.OneScript)
-				node.Attributes = ReadAttributes(parent);
+				node.Attributes = Attributes(parent);
 
 			if (PeekTokenType() == TokenType.VAL)
 				node.ValKeyword = ReadToken();
@@ -929,7 +1164,7 @@ namespace BSL.AST.Parsing
 			return node;
 		}
 
-		private List<AttributeNode> ReadAttributes(BslNode parent)
+		private List<AttributeNode> Attributes(BslNode parent)
 		{
 			var items = new List<AttributeNode>();
 
@@ -962,54 +1197,6 @@ namespace BSL.AST.Parsing
 
 		#region Tokens reading
 
-		private void HandleTrivias(List<BslTrivia> trivias)
-		{
-			foreach(var trivia in trivias)
-			{
-				if (trivia.Kind == BslTriviaKind.RegionDirective)
-				{
-					_state.Regions.Push(new Region()
-					{
-						StartTrivia = trivia,
-						Name = trivia.Value
-					});
-				}
-				else if (trivia.Kind == BslTriviaKind.EndRegionDirective)
-				{
-					if (_state.Regions.TryPop(out var region))
-					{
-						region.FinishTrivia = trivia;
-						_state.CurrentModule.Regions.Add(region);
-					}
-					else
-						_diagnostics.Add(SyntaxDiagnosticsFactory.UnexpectedEndRegion(trivia.Position));
-				}
-				else if (trivia.Kind == BslTriviaKind.UseDirective)
-					_state.CurrentModule.Usings.Add(new Using()
-					{
-						Trivia = trivia,
-						Path = trivia.Value
-					});
-				else if (trivia.Kind == BslTriviaKind.IfDirective || trivia.Kind == BslTriviaKind.ElseIfDirective)
-				{
-					var context = BslDirectiveConditionCompiler.Compile(trivia.Value);
-
-					if (context.Errors.Count > 0)
-						_diagnostics.AddRange(context.Errors);
-					else
-					{
-
-					}
-				}
-			}
-		}
-
-		private void HandleTokenTrivias(BslToken token)
-		{
-			HandleTrivias(token.LeadingTrivias);
-			HandleTrivias(token.TrailingTrivias);
-		}
-
 		private void SkipTill(BslNode parent, TokenType tokenType)
 		{
 			var node = new SkippedTokensNode(parent);
@@ -1023,33 +1210,37 @@ namespace BSL.AST.Parsing
 			}
 		}
 
-		private BslToken PeekToken(int offset = 0)
+		private BslToken PeekToken(out int index, int offset = 0)
 		{
-			if (_currentTokenIndex + offset >= _tokens.Count)
-				return _tokens[^1];
-			else
-				return _tokens[_currentTokenIndex + offset];
+			index = _currentTokenIndex + offset;
+
+			while (index < _tokens.Count)
+			{
+				if ((_tokens[index].CompileContext & _options.ActualContext) > 0)
+					return _tokens[index];
+
+				index++;
+			}
+
+			return _tokens[^1];
 		}
 
 		private TokenType PeekTokenType(int offset = 0)
-			=> PeekToken(offset).Type;
+			=> PeekToken(out var _, offset).Type;
 
 		private BslToken ReadToken()
 		{
-			var token = PeekToken();
+			var token = PeekToken(out var index);
 
 			if (token.Type != TokenType.EOF)
-			{
-				HandleTokenTrivias(token);
-				_currentTokenIndex++;
-			}
+				_currentTokenIndex = ++index;
 
 			return token;
 		}
 
 		private BslToken ReadOrThrow(TokenType tokenType, Func<BslToken, Diagnostic> errorBuilder)
 		{
-			var peek = PeekToken();
+			var peek = PeekToken(out var _);
 
 			if (tokenType == peek.Type)
 				return ReadToken();
@@ -1105,7 +1296,7 @@ namespace BSL.AST.Parsing
 
 		private bool NextIdentifierIsBilingualValue(string ru, string en)
 		{
-			var peek = PeekToken();
+			var peek = PeekToken(out var _);
 			return peek.Type == TokenType.IDENTIFIER && ParserHelper.BilingualTokenValueIs(peek.Text, ru, en);
 		}
 

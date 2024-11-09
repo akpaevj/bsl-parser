@@ -1,12 +1,8 @@
-﻿using BSL.AST.Lexing;
-
-namespace BSL.AST.Parsing
+﻿namespace BSL.AST.Lexing
 {
-	public class Region
+	public class Insert
 	{
 		public BslTrivia StartTrivia { get; internal set; } = default;
 		public BslTrivia FinishTrivia { get; internal set; } = default;
-
-		public string Name { get; internal set; } = string.Empty;
 	}
 }

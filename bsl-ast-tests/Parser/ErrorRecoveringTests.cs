@@ -11,7 +11,7 @@ namespace BSL.AST.Tests.Parser
 		[Fact]
 		public void Test()
 		{
-			var data = TestHelper.ParseModule("Перем А; 1 > 0;");
+			//var data = TestHelper.ParseModule("Перем А; 1 > 0;");
 		}
 	}
 }

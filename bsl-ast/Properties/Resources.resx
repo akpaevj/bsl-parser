@@ -210,6 +210,12 @@
   <data name="UnexpectedAwaitOperator" xml:space="preserve">
     <value>Ключевое слово "Ждать" может использоваться только в методах с модификатором "Асинх"</value>
   </data>
+  <data name="UnexpectedEndDelete" xml:space="preserve">
+    <value>Не найдено начало удаления</value>
+  </data>
+  <data name="UnexpectedEndInsert" xml:space="preserve">
+    <value>Не найдено начало вставки</value>
+  </data>
   <data name="UnexpectedEndRegion" xml:space="preserve">
     <value>Не найдено начало области</value>
   </data>
@@ -217,7 +223,7 @@
     <value>Неизвестная инструкция препроцессора</value>
   </data>
   <data name="UnexpectedPreprocessorExpression" xml:space="preserve">
-    <value>Неожиданный оператор условия препроцессора</value>
+    <value>Неизвестный оператор условия препроцессора</value>
   </data>
   <data name="UnexpectedVariableDeclaration" xml:space="preserve">
     <value>Объявления переменных должны быть расположены в начале модуля, процедуры или функции</value>

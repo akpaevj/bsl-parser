@@ -1,4 +1,5 @@
 ﻿using BSL.AST.Parsing.Nodes;
+using BSL.AST.Parsing.Nodes.Expressions;
 using BSL.AST.Parsing.Nodes.Expressions.Literals;
 using BSL.AST.Parsing.Nodes.Statements;
 using System;
@@ -12,22 +13,66 @@ namespace BSL.AST.Tests.Parser
 	public class ModuleTests
 	{
 		[Fact]
+		public void AwaitExpressionTest()
+		{
+			var source =
+				@"Асинх Процедура МояПроцедура()
+					Ждать Привет();
+				КонецПроцедуры";
+
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				var statement = Assert.IsType<ExpressionStatementNode>(method.Body.Statements.First());
+				Assert.IsType<AwaitExpressionNode>(statement.Expression);
+			});
+		}
+
+		[Fact]
+		public void ReturnStatementTest()
+		{
+			var source =
+				@"Процедура Привет()
+					Возврат;
+				КонецПроцедуры";
+
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				var returnStatement = Assert.IsType<ReturnStatementNode>(method.Body.Statements.First());
+				Assert.Null(returnStatement.Expression);
+			});
+		}
+
+		[Fact]
+		public void ReturnStatementWithExpressionTest()
+		{
+			var source =
+				@"Функция Привет()
+					Возврат ""Привет"";
+				КонецФункции";
+
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				var returnStatement = Assert.IsType<ReturnStatementNode>(method.Body.Statements.First());
+				Assert.NotNull(returnStatement.Expression);
+			});
+		}
+
+		[Fact]
 		public void EmptyProcedureNodeWithoutArgumentsTest()
 		{
 			var source = 
 				@"Процедура ПолучитьИдентификатор()
 				КонецПроцедуры";
 
-			var module = TestHelper.ModuleNodeTest(source);
-			var child = Assert.Single(module.Children);
-
-			var procedure = Assert.IsType<MethodNode>(child);
-			Assert.Equal("ПолучитьИдентификатор", procedure.IdentifierToken.Text);
-			Assert.False(procedure.IsAsync);
-			Assert.False(procedure.IsFunction);
-			Assert.False(procedure.IsExported);
-			Assert.Empty(procedure.Parameters.Items);
-			Assert.Empty(procedure.Body.Statements);
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				Assert.Equal("ПолучитьИдентификатор", method.IdentifierToken.Text);
+				Assert.False(method.IsAsync);
+				Assert.False(method.IsFunction);
+				Assert.False(method.IsExported);
+				Assert.Empty(method.Parameters.Items);
+				Assert.Empty(method.Body.Statements);
+			});
 		}
 
 		[Fact]
@@ -37,16 +82,15 @@ namespace BSL.AST.Tests.Parser
 			@"Процедура ПолучитьИдентификатор() Экспорт
 				КонецПроцедуры";
 
-			var module = TestHelper.ModuleNodeTest(source);
-			var child = Assert.Single(module.Children);
-
-			var procedure = Assert.IsType<MethodNode>(child);
-			Assert.Equal("ПолучитьИдентификатор", procedure.IdentifierToken.Text);
-			Assert.False(procedure.IsAsync);
-			Assert.False(procedure.IsFunction);
-			Assert.True(procedure.IsExported);
-			Assert.Empty(procedure.Parameters.Items);
-			Assert.Empty(procedure.Body.Statements);
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				Assert.Equal("ПолучитьИдентификатор", method.IdentifierToken.Text);
+				Assert.False(method.IsAsync);
+				Assert.False(method.IsFunction);
+				Assert.True(method.IsExported);
+				Assert.Empty(method.Parameters.Items);
+				Assert.Empty(method.Body.Statements);
+			});
 		}
 
 		[Fact]
@@ -56,16 +100,15 @@ namespace BSL.AST.Tests.Parser
 				@"Функция ПолучитьИдентификатор()
 				КонецФункции";
 
-			var module = TestHelper.ModuleNodeTest(source);
-			var child = Assert.Single(module.Children);
-
-			var procedure = Assert.IsType<MethodNode>(child);
-			Assert.Equal("ПолучитьИдентификатор", procedure.IdentifierToken.Text);
-			Assert.False(procedure.IsAsync);
-			Assert.True(procedure.IsFunction);
-			Assert.False(procedure.IsExported);
-			Assert.Empty(procedure.Parameters.Items);
-			Assert.Empty(procedure.Body.Statements);
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				Assert.Equal("ПолучитьИдентификатор", method.IdentifierToken.Text);
+				Assert.False(method.IsAsync);
+				Assert.True(method.IsFunction);
+				Assert.False(method.IsExported);
+				Assert.Empty(method.Parameters.Items);
+				Assert.Empty(method.Body.Statements);
+			});
 		}
 
 		[Fact]
@@ -75,16 +118,15 @@ namespace BSL.AST.Tests.Parser
 				@"Асинх Процедура ПолучитьИдентификатор()
 				КонецПроцедуры";
 
-			var module = TestHelper.ModuleNodeTest(source);
-			var child = Assert.Single(module.Children);
-
-			var procedure = Assert.IsType<MethodNode>(child);
-			Assert.Equal("ПолучитьИдентификатор", procedure.IdentifierToken.Text);
-			Assert.True(procedure.IsAsync);
-			Assert.False(procedure.IsFunction);
-			Assert.False(procedure.IsExported);
-			Assert.Empty(procedure.Parameters.Items);
-			Assert.Empty(procedure.Body.Statements);
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				Assert.Equal("ПолучитьИдентификатор", method.IdentifierToken.Text);
+				Assert.True(method.IsAsync);
+				Assert.False(method.IsFunction);
+				Assert.False(method.IsExported);
+				Assert.Empty(method.Parameters.Items);
+				Assert.Empty(method.Body.Statements);
+			});
 		}
 
 		[Fact]
@@ -95,32 +137,31 @@ namespace BSL.AST.Tests.Parser
 					А = Параметр2 + 1;
 				КонецПроцедуры";
 
-			var module = TestHelper.ModuleNodeTest(source);
-			var child = Assert.Single(module.Children);
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				Assert.Equal("ПолучитьИдентификатор", method.IdentifierToken.Text);
+				Assert.False(method.IsAsync);
+				Assert.False(method.IsFunction);
+				Assert.False(method.IsExported);
 
-			var procedure = Assert.IsType<MethodNode>(child);
-			Assert.Equal("ПолучитьИдентификатор", procedure.IdentifierToken.Text);
-			Assert.False(procedure.IsAsync);
-			Assert.False(procedure.IsFunction);
-			Assert.False(procedure.IsExported);
+				Assert.Collection(method.Parameters.Items,
+					i =>
+					{
+						Assert.Equal("Параметр1", i.IdentifierToken.Text);
+						Assert.False(i.HasDefaultValue);
+					},
+					i =>
+					{
+						Assert.Equal("Параметр2", i.IdentifierToken.Text);
 
-			Assert.Collection(procedure.Parameters.Items,
-				i =>
-				{
-					Assert.Equal("Параметр1", i.IdentifierToken.Text);
-					Assert.False(i.HasDefaultValue);
-				},
-				i =>
-				{
-					Assert.Equal("Параметр2", i.IdentifierToken.Text);
+						var expression = Assert.IsType<NumberLiteralExpressionNode>(i.DefaultExpression);
+						Assert.True(i.HasDefaultValue);
+						Assert.Equal(2, expression.Value);
+					});
 
-					var expression = Assert.IsType<NumberLiteralExpressionNode>(i.DefaultExpression);
-					Assert.True(i.HasDefaultValue);
-					Assert.Equal(2, expression.Value);
-				});
-			
 
-			Assert.Single(procedure.Body.Statements);
+				Assert.Single(method.Body.Statements);
+			});
 		}
 
 		[Fact]
@@ -131,13 +172,11 @@ namespace BSL.AST.Tests.Parser
 				Процедура ПолучитьИдентификатор()
 				КонецПроцедуры";
 
-			var module = TestHelper.ModuleNodeTest(source);
-			var child = Assert.Single(module.Children);
-
-			var procedure = Assert.IsType<MethodNode>(child);
-			
-			var attribute = Assert.Single(procedure.Attributes);
-			Assert.Equal("НаСервере", attribute.IdentifierToken.Text);
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				var attribute = Assert.Single(method.Attributes);
+				Assert.Equal("НаСервере", attribute.IdentifierToken.Text);
+			});
 		}
 
 		[Fact]
@@ -148,18 +187,31 @@ namespace BSL.AST.Tests.Parser
 				Процедура Расш1_ПолучитьИдентификатор()
 				КонецПроцедуры";
 
-			var module = TestHelper.ModuleNodeTest(source);
-			var child = Assert.Single(module.Children);
+			TestHelper.MethodNodeTest(source, method =>
+			{
+				var attribute = Assert.Single(method.Attributes);
+				Assert.Equal("Перед", attribute.IdentifierToken.Text);
 
-			var procedure = Assert.IsType<MethodNode>(child);
-			
-			var attribute = Assert.Single(procedure.Attributes);
-			Assert.Equal("Перед", attribute.IdentifierToken.Text);
+				var parameter = Assert.Single(attribute.Parameters.Items);
+				Assert.Null(parameter.NameToken);
+				var literal = Assert.IsType<StringLiteralExpressionNode>(parameter.ValueExpression);
+				Assert.Equal("ПолучитьИдентификатор", literal.Value);
+			});
+		}
 
-			var parameter = Assert.Single(attribute.Parameters.Items);
-			Assert.Null(parameter.NameToken);
-			var literal = Assert.IsType<StringLiteralExpressionNode>(parameter.ValueExpression);
-			Assert.Equal("ПолучитьИдентификатор", literal.Value);
+		[Fact]
+		public void MultipleMethodsTest()
+		{
+			var source =
+				@"Функция Идентификатор()
+					Возврат 1;
+				КонецФункции
+				
+				Функция ПолучитьИдентификатор()
+					Возврат Идентификатор();
+				КонецФункции";
+
+			TestHelper.ParseServerCommonModule(source);
 		}
 
 		[Fact]
@@ -191,7 +243,39 @@ namespace BSL.AST.Tests.Parser
 	
 				КонецПроцедуры";
 
-			TestHelper.ModuleNodeTest(source);
+			TestHelper.ParseClientCommonModule(source);
+		}
+
+		[Fact]
+		public void NestedPreprocessorDirective()
+		{
+			var source =
+				@"Процедура ПередНачаломРаботыСистемы()
+	
+				#Если Сервер Тогда
+
+				#Иначе
+
+				#Если МобильныйКлиент Тогда
+					Если ОсновнойСерверДоступен() = Ложь Тогда
+						Возврат;
+					КонецЕсли;
+				#КонецЕсли
+	
+					// СтандартныеПодсистемы
+				#Если МобильныйКлиент Тогда
+					Выполнить(""СтандартныеПодсистемыКлиент.ПередНачаломРаботыСистемы()"");
+				#Иначе
+					СтандартныеПодсистемыКлиент.ПередНачаломРаботыСистемы();
+				#КонецЕсли
+					// Конец СтандартныеПодсистемы
+
+				#КонецЕсли
+	
+				КонецПроцедуры";
+
+			var result = TestHelper.ParseClientServerCommonModule(source);
+			Assert.Empty(result.Errors);
 		}
 	}
 }

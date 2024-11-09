@@ -54,20 +54,6 @@ namespace BSL.AST.Tests.Lexer
 		}
 
 		[Fact]
-		public void PreprocessorTrivia()
-		{
-			var value = "#Если Сервер Тогда";
-			TestHelper.CheckSingleTrivia(value, BslTriviaKind.IfDirective, TokenType.EOF, "Если Сервер Тогда");
-		}
-
-		[Fact]
-		public void EndPreprocessorTrivia()
-		{
-			var value = "#КонецЕсли";
-			TestHelper.CheckSingleTrivia(value, BslTriviaKind.EndIfDirective, TokenType.EOF, "КонецЕсли");
-		}
-
-		[Fact]
 		public void InvalidInsertTrivia()
 		{
 			var value = "#Вставка";

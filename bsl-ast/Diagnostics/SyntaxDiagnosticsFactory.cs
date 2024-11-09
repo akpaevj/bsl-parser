@@ -76,8 +76,12 @@ namespace BSL.AST.Diagnostics
 		internal static Diagnostic EndRegionExpected(SourcePosition Position)
 			=> new(BslParser.DIAGNOSTICS_REPORTER_CODE, "0033", DiagnosticLevel.ERROR, Resources.EndRegionExpected, Position);
 		internal static Diagnostic UnexpectedPreprocessorExpression(SourcePosition Position)
-			=> new(BslParser.DIAGNOSTICS_REPORTER_CODE, "0034", DiagnosticLevel.WARNING, Resources.UnexpectedPreprocessorExpression, Position);
+			=> new(BslParser.DIAGNOSTICS_REPORTER_CODE, "0034", DiagnosticLevel.ERROR, Resources.UnexpectedPreprocessorExpression, Position);
 		internal static Diagnostic UnexpectedPreprocessorDirective(SourcePosition Position)
-			=> new(BslParser.DIAGNOSTICS_REPORTER_CODE, "0035", DiagnosticLevel.WARNING, Resources.UnexpectedPreprocessorDirective, Position);
+			=> new(BslParser.DIAGNOSTICS_REPORTER_CODE, "0035", DiagnosticLevel.ERROR, Resources.UnexpectedPreprocessorDirective, Position);
+		internal static Diagnostic UnexpectedEndInsert(SourcePosition Position)
+			=> new(BslParser.DIAGNOSTICS_REPORTER_CODE, "0036", DiagnosticLevel.ERROR, Resources.UnexpectedEndInsert, Position);
+		internal static Diagnostic UnexpectedEndDelete(SourcePosition Position)
+			=> new(BslParser.DIAGNOSTICS_REPORTER_CODE, "0037", DiagnosticLevel.ERROR, Resources.UnexpectedEndDelete, Position);
 	}
 }

@@ -1,5 +1,4 @@
 ﻿using BSL.AST.Parsing.Nodes;
-using BSL.AST.Parsing.Preprocessing;
 
 namespace BSL.AST.Parsing
 {
@@ -8,10 +7,6 @@ namespace BSL.AST.Parsing
 	/// </summary>
 	internal class BslParserState
 	{
-		/// <summary>
-		/// Выполняется парсинг диалекта 1Скрипт
-		/// </summary>
-		public bool IsOneScript { get; internal set; } = false;
 		/// <summary>
 		/// Находимся в методе
 		/// </summary>
@@ -40,21 +35,5 @@ namespace BSL.AST.Parsing
 		/// Чтение инструкций в блоке модуля уже началось
 		/// </summary>
 		public bool StatementsSectionIsStarted { get; internal set; } = false;
-		/// <summary>
-		/// Стек текущих областей
-		/// </summary>
-		public Stack<Region> Regions { get; internal set; } = [];
-		/// <summary>
-		/// Стек контекстов компиляции
-		/// </summary>
-		public Stack<BslCompileContexts> CompileContexts { get; internal set; } = [];
-		/// <summary>
-		/// Текущий контекст компиляции
-		/// </summary>
-		public BslCompileContexts CurrentCompileContext { get; internal set; } = BslCompileContexts.None;
-		/// <summary>
-		/// Экземпляр текущего модуля
-		/// </summary>
-		public ModuleNode CurrentModule { get; internal set; } = null!;
 	}
 }

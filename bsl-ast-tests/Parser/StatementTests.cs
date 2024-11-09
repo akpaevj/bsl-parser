@@ -9,7 +9,7 @@ namespace BSL.AST.Tests.Parser
 		public void AssignmentStatementTest()
 		{
 			var source = "А = 1;";
-			TestHelper.ExactSingleStatementNodeTest<AssignmentStatementNode>(source);
+			TestHelper.StatementNodeTest<AssignmentStatementNode>(source);
 		}
 
 		[Fact]
@@ -17,8 +17,10 @@ namespace BSL.AST.Tests.Parser
 		{
 			var source = "Перем МояМеременная;";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<VariableDeclarationStatementNode>(source);
-			Assert.False(statement.IsExported);
+			TestHelper.StatementNodeTest<VariableDeclarationStatementNode>(source, node =>
+			{
+				Assert.False(node.IsExported);
+			});
 		}
 
 		[Fact]
@@ -26,15 +28,21 @@ namespace BSL.AST.Tests.Parser
 		{
 			var source = "Перем МояМеременная Экспорт;";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<VariableDeclarationStatementNode>(source);
-			Assert.True(statement.IsExported);
+			TestHelper.StatementNodeTest<VariableDeclarationStatementNode>(source, node =>
+			{
+				Assert.True(node.IsExported);
+			});
 		}
 
 		[Fact]
 		public void MultipleVariableDeclarationStatementTest()
 		{
 			var source = "Перем МояМеременная, МояПеременная2;";
-			TestHelper.ExactSingleStatementNodeTest<VariableDeclarationStatementNode>(source);
+
+			TestHelper.StatementNodeTest<VariableDeclarationStatementNode>(source, node =>
+			{
+				Assert.Equal(2, node.Identifiers.Items.Count);
+			});
 		}
 
 		[Fact]
@@ -42,8 +50,11 @@ namespace BSL.AST.Tests.Parser
 		{
 			var source = "Перем МояМеременная, МояПеременная2 Экспорт;";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<VariableDeclarationStatementNode>(source);
-			Assert.True(statement.IsExported);
+			TestHelper.StatementNodeTest<VariableDeclarationStatementNode>(source, node =>
+			{
+				Assert.True(node.IsExported);
+				Assert.Equal(2, node.Identifiers.Items.Count);
+			});
 		}
 
 		[Fact]
@@ -53,8 +64,10 @@ namespace BSL.AST.Tests.Parser
 				@"Для Сч = 0 По 10 Цикл
 				КонецЦикла;";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<ForStatementNode>(source);
-			Assert.Empty(statement.Body.Statements);
+			TestHelper.StatementNodeTest<ForStatementNode>(source, node =>
+			{
+				Assert.Empty(node.Body.Statements);
+			});
 		}
 
 		[Fact]
@@ -66,8 +79,10 @@ namespace BSL.AST.Tests.Parser
 					А = А + 1;
 				КонецЦикла;";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<ForStatementNode>(source);
-			Assert.Equal(2, statement.Body.Statements.Count);
+			TestHelper.StatementNodeTest<ForStatementNode>(source, node =>
+			{
+				Assert.Equal(2, node.Body.Statements.Count);
+			});
 		}
 
 		[Fact]
@@ -77,8 +92,10 @@ namespace BSL.AST.Tests.Parser
 				@"Для Каждого Строка Из МояТаблица Цикл
 				КонецЦикла;";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<ForEachStatementNode>(source);
-			Assert.Empty(statement.Body.Statements);
+			TestHelper.StatementNodeTest<ForEachStatementNode>(source, node =>
+			{
+				Assert.Empty(node.Body.Statements);
+			});
 		}
 
 		[Fact]
@@ -90,8 +107,10 @@ namespace BSL.AST.Tests.Parser
 					А = А + 1;
 				КонецЦикла;";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<ForEachStatementNode>(source);
-			Assert.Equal(2, statement.Body.Statements.Count);
+			TestHelper.StatementNodeTest<ForEachStatementNode>(source, node =>
+			{
+				Assert.Equal(2, node.Body.Statements.Count);
+			});
 		}
 
 		[Fact]
@@ -102,9 +121,11 @@ namespace BSL.AST.Tests.Parser
 					Прервать;
 				КонецЦикла;";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<ForEachStatementNode>(source);
-			var child = Assert.Single(statement.Body.Statements);
-			Assert.IsType<BreakStatementNode>(child);
+			TestHelper.StatementNodeTest<ForEachStatementNode>(source, node =>
+			{
+				var child = Assert.Single(node.Body.Statements);
+				Assert.IsType<BreakStatementNode>(child);
+			});
 		}
 
 		[Fact]
@@ -115,9 +136,11 @@ namespace BSL.AST.Tests.Parser
 					Продолжить;
 				КонецЦикла;";
 
-			var statement = TestHelper.ExactSingleStatementNodeTest<ForEachStatementNode>(source);
-			var child = Assert.Single(statement.Body.Statements);
-			Assert.IsType<ContinueStatementNode>(child);
+			TestHelper.StatementNodeTest<ForEachStatementNode>(source, node =>
+			{
+				var child = Assert.Single(node.Body.Statements);
+				Assert.IsType<ContinueStatementNode>(child);
+			});
 		}
 
 		[Fact]
@@ -128,7 +151,7 @@ namespace BSL.AST.Tests.Parser
 					Продолжить;
 				КонецЦикла;";
 
-			TestHelper.ExactSingleStatementNodeTest<WhileStatementNode>(source);
+			TestHelper.StatementNodeTest<WhileStatementNode>(source);
 		}
 
 		[Fact]
@@ -136,49 +159,55 @@ namespace BSL.AST.Tests.Parser
 		{
 			var source = @"~МояМетка:";
 
-			TestHelper.ExactSingleStatementNodeTest<LabelNode>(source);
+			TestHelper.StatementNodeTest<LabelNode>(source);
 		}
 
 		[Fact]
 		public void GoToStatementTest()
 		{
 			var source = "Перейти ~МояМетка;";
-			TestHelper.ExactSingleStatementNodeTest<GoToStatementNode>(source);
+
+			TestHelper.StatementNodeTest<GoToStatementNode>(source);
 		}
 
 		[Fact]
 		public void ShortStatementWithoutExpressionTest()
 		{
 			var source = "ВызватьИсключение;";
-			TestHelper.ExactSingleStatementNodeTest<ShortRaiseStatementNode>(source);
+
+			TestHelper.StatementNodeTest<ShortRaiseStatementNode>(source);
 		}
 
 		[Fact]
 		public void ShortStatementTest()
 		{
 			var source = "ВызватьИсключение \"Текст исключения\";";
-			TestHelper.ExactSingleStatementNodeTest<ShortRaiseStatementNode>(source);
+
+			TestHelper.StatementNodeTest<ShortRaiseStatementNode>(source);
 		}
 
 		[Fact]
 		public void FullStatementTest()
 		{
 			var source = "ВызватьИсключение(\"Текст исключения\", КатегорияОшибки.ОшибкаСети);";
-			TestHelper.ExactSingleStatementNodeTest<FullRaiseStatementNode>(source);
+
+			TestHelper.StatementNodeTest<FullRaiseStatementNode>(source);
 		}
 
 		[Fact]
 		public void AddHandlerStatementTest()
 		{
 			var source = "ДобавитьОбработчик Объект.Событие, МойОбработчик;";
-			TestHelper.ExactSingleStatementNodeTest<HandlerActionStatementNode>(source);
+
+			TestHelper.StatementNodeTest<HandlerActionStatementNode>(source);
 		}
 
 		[Fact]
 		public void RemoveHandlerStatementTest()
 		{
 			var source = "УдалитьОбработчик Объект.Событие, МойОбработчик;";
-			TestHelper.ExactSingleStatementNodeTest<HandlerActionStatementNode>(source);
+
+			TestHelper.StatementNodeTest<HandlerActionStatementNode>(source);
 		}
 
 		[Fact]
@@ -191,7 +220,7 @@ namespace BSL.AST.Tests.Parser
 					Сообщить(ОписаниеОшибки());
 				КонецПопытки;";
 
-			TestHelper.ExactSingleStatementNodeTest<TryStatementNode>(source);
+			TestHelper.StatementNodeTest<TryStatementNode>(source);
 		}
 
 		[Fact]
@@ -202,9 +231,11 @@ namespace BSL.AST.Tests.Parser
 					Сообщить(""Если"");
 				КонецЕсли;";
 
-			var ifStatement = TestHelper.ExactSingleStatementNodeTest<IfStatementNode>(source);
-			Assert.Empty(ifStatement.ElseIfClauses);
-			Assert.Null(ifStatement.ElseClause);
+			TestHelper.StatementNodeTest<IfStatementNode>(source, node =>
+			{
+				Assert.Empty(node.ElseIfClauses);
+				Assert.Null(node.ElseClause);
+			});
 		}
 
 		[Fact]
@@ -217,9 +248,11 @@ namespace BSL.AST.Tests.Parser
 					Сообщить(""Иначе"");
 				КонецЕсли;";
 
-			var ifStatement = TestHelper.ExactSingleStatementNodeTest<IfStatementNode>(source);
-			Assert.Empty(ifStatement.ElseIfClauses);
-			Assert.NotNull(ifStatement.ElseClause);
+			TestHelper.StatementNodeTest<IfStatementNode>(source, node =>
+			{
+				Assert.Empty(node.ElseIfClauses);
+				Assert.NotNull(node.ElseClause);
+			});
 		}
 
 		[Fact]
@@ -232,10 +265,11 @@ namespace BSL.AST.Tests.Parser
 					Сообщить(""Иначе если"");
 				КонецЕсли;";
 
-			var ifStatement = TestHelper.ExactSingleStatementNodeTest<IfStatementNode>(source);
-			Assert.Single(ifStatement.ElseIfClauses);
-			Assert.Null(ifStatement.ElseClause);
-
+			TestHelper.StatementNodeTest<IfStatementNode>(source, node =>
+			{
+				Assert.Single(node.ElseIfClauses);
+				Assert.Null(node.ElseClause);
+			});
 		}
 
 		[Fact]
@@ -254,39 +288,11 @@ namespace BSL.AST.Tests.Parser
 					Сообщить(""Иначе"");
 				КонецЕсли;";
 
-			var ifStatement = TestHelper.ExactSingleStatementNodeTest<IfStatementNode>(source);
-			Assert.Equal(3, ifStatement.ElseIfClauses.Count);
-			Assert.NotNull(ifStatement.ElseClause);
-		}
-
-		[Fact]
-		public void ReturnStatementTest()
-		{
-			var source =
-				@"Процедура Привет()
-					Возврат;
-				КонецПроцедуры";
-
-			var module = TestHelper.ModuleNodeTest(source);
-			var procedure = Assert.IsType<MethodNode>(module.Children.First());
-
-			var returnStatement = Assert.IsType<ReturnStatementNode>(procedure.Body.Statements.First());
-			Assert.Null(returnStatement.Expression);
-		}
-
-		[Fact]
-		public void ReturnStatementWithExpressionTest()
-		{
-			var source =
-				@"Функция Привет()
-					Возврат ""Привет"";
-				КонецФункции";
-
-			var module = TestHelper.ModuleNodeTest(source);
-			var function = Assert.IsType<MethodNode>(module.Children.First());
-
-			var returnStatement = Assert.IsType<ReturnStatementNode>(function.Body.Statements.First());
-			Assert.NotNull(returnStatement.Expression);
+			TestHelper.StatementNodeTest<IfStatementNode>(source, node =>
+			{
+				Assert.Equal(3, node.ElseIfClauses.Count);
+				Assert.NotNull(node.ElseClause);
+			});
 		}
 
 		[Fact]
@@ -297,21 +303,21 @@ namespace BSL.AST.Tests.Parser
 					Возврат
 				КонецЕсли;";
 
-			TestHelper.ModuleNodeTest(source);
+			TestHelper.StatementNodeTest<IfStatementNode>(source);
 		}
 
 		[Fact]
 		public void ExecuteStatementTest()
 		{
 			var source = "Выполнить(ИмяМетода + \"(\" + ПараметрыСтрока + \")\");";
-			TestHelper.ModuleNodeTest(source);
+			TestHelper.StatementNodeTest<ExecuteStatementNode>(source);
 		}
 
 		[Fact]
 		public void ExecuteStatementWithoutParentsTest()
 		{
 			var source = "Выполнить ИмяМетода + \"(\" + ПараметрыСтрока + \")\";";
-			TestHelper.ModuleNodeTest(source);
+			TestHelper.StatementNodeTest<ExecuteStatementNode>(source);
 		}
 
 		[Fact]
@@ -324,7 +330,7 @@ namespace BSL.AST.Tests.Parser
 					ПодразделНайден = Ложь;
 				КонецЕсли";
 
-			TestHelper.ModuleNodeTest(source);
+			TestHelper.StatementNodeTest<IfStatementNode>(source);
 		}
 	}
 }

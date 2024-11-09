@@ -11,46 +11,46 @@ namespace BSL.AST.Tests.Parser
     {
 		[Fact]
 		public void AndExpressionNodeTest()
-			=> TestHelper.BinaryExpressionNodeTest<AndExpressionNode, BoolLiteralExpressionNode, BoolLiteralExpressionNode>("А = ИСТИНА И ИСТИНА;");
+			=> TestHelper.BinaryExpressionNodeTest<AndExpressionNode, BoolLiteralExpressionNode, BoolLiteralExpressionNode>("ИСТИНА И ИСТИНА");
 
 		[Fact]
 		public void EqualsExpressionNodeTest()
-			=> TestHelper.BinaryExpressionNodeTest<EqualsExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("А = 1 = 1;");
+			=> TestHelper.BinaryExpressionNodeTest<EqualsExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("1 = 1");
 
 		[Fact]
 		public void NotEqualsExpressionNodeTest()
-			=> TestHelper.BinaryExpressionNodeTest<NotEqualsExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("А = 1 <> 1;");
+			=> TestHelper.BinaryExpressionNodeTest<NotEqualsExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("1 <> 1");
 
 		[Fact]
 		public void OrExpressionNodeTest()
-			=> TestHelper.BinaryExpressionNodeTest<OrExpressionNode, BoolLiteralExpressionNode, BoolLiteralExpressionNode>("А = ИСТИНА ИЛИ ИСТИНА;");
+			=> TestHelper.BinaryExpressionNodeTest<OrExpressionNode, BoolLiteralExpressionNode, BoolLiteralExpressionNode>("ИСТИНА ИЛИ ИСТИНА");
 
 		[Fact]
 		public void NotExpressionNodeTest()
-			=> TestHelper.CheckAssignmentStatementNode<NotExpressionNode>("А = НЕ ИСТИНА;", node =>
+			=> TestHelper.ExpressionNodeTest<NotExpressionNode>("НЕ ИСТИНА;", node =>
 			{
 				Assert.IsType<BoolLiteralExpressionNode>(node.Operand);
 			});
 
 		[Fact]
 		public void GreaterExpressionNodeTest()
-			=> TestHelper.BinaryExpressionNodeTest<GreaterExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("А = 1 > 2;");
+			=> TestHelper.BinaryExpressionNodeTest<GreaterExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("1 > 2");
 
 		[Fact]
 		public void GreaterOrEqualsExpressionNodeTest()
-			=> TestHelper.BinaryExpressionNodeTest<GreaterOrEqualsExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("А = 1 >= 2;");
+			=> TestHelper.BinaryExpressionNodeTest<GreaterOrEqualsExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("1 >= 2");
 
 		[Fact]
 		public void LessExpressionNodeTest()
-			=> TestHelper.BinaryExpressionNodeTest<LessExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("А = 1 < 2;");
+			=> TestHelper.BinaryExpressionNodeTest<LessExpressionNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("1 < 2");
 
 		[Fact]
 		public void LessOrEqualsExpressionNodeTest()
-			=> TestHelper.BinaryExpressionNodeTest<LessOrEqualsExpressioNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("А = 1 <= 2;");
+			=> TestHelper.BinaryExpressionNodeTest<LessOrEqualsExpressioNode, NumberLiteralExpressionNode, NumberLiteralExpressionNode>("1 <= 2");
 
 		[Fact]
 		public void ComplexLogicalExpressionNodeTest()
-			=> TestHelper.CheckAssignmentStatementNode<NotExpressionNode>("А = НЕ (1 > 2 ИЛИ (2 < 3 И ИСТИНА));", node =>
+			=> TestHelper.ExpressionNodeTest<NotExpressionNode>("НЕ (1 > 2 ИЛИ (2 < 3 И ИСТИНА))", node =>
 			{
 				var parenthesized = Assert.IsType<ParenthesizedExpressionNode>(node.Operand);
 				var or = Assert.IsType<OrExpressionNode>(parenthesized.Expression);

@@ -12,10 +12,10 @@ namespace BSL.AST.Parsing.Preprocessing
 {
     internal class BslDirectiveConditionCompiler
     {
-        public static (BslCompileContexts Context, IReadOnlyList<Diagnostic> Errors) Compile(ReadOnlySpan<char> source)
+        public static (BslCompileContexts Context, IReadOnlyList<Diagnostic> Errors) Compile(ReadOnlySpan<char> source, BslParserOptions options)
         {
             var parser = new BslParser();
-            var directiveNode = parser.ParseIfElseIfDirective(source);
+            var directiveNode = parser.ParseIfElseIfDirective(source, options);
 
             if (parser.Diagnostics.Count > 0)
                 return (BslCompileContexts.None, parser.Diagnostics);

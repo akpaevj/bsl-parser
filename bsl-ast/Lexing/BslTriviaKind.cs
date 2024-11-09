@@ -9,12 +9,12 @@
         EndOfLine,
         RegionDirective,
         EndRegionDirective,
+        IfPreprocessorTrivia,
+        ElseIfPreprocessorTrivia,
+        ElsePreprocessorTrivia,
+        EndIfPreprocessorTrivia,
 
         // 1C
-        IfDirective,
-		ElseIfDirective,
-		ElseDirective,
-		EndIfDirective,
         InsertDirective,
         EndInsertDirective,
         DeleteDirective,

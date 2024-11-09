@@ -340,6 +340,24 @@ namespace BSL.AST.Properties {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Не найдено начало удаления.
+        /// </summary>
+        internal static string UnexpectedEndDelete {
+            get {
+                return ResourceManager.GetString("UnexpectedEndDelete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на Не найдено начало вставки.
+        /// </summary>
+        internal static string UnexpectedEndInsert {
+            get {
+                return ResourceManager.GetString("UnexpectedEndInsert", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на Не найдено начало области.
         /// </summary>
         internal static string UnexpectedEndRegion {
@@ -358,7 +376,7 @@ namespace BSL.AST.Properties {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на Неожиданный оператор условия препроцессора.
+        ///   Ищет локализованную строку, похожую на Неизвестный оператор условия препроцессора.
         /// </summary>
         internal static string UnexpectedPreprocessorExpression {
             get {

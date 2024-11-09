@@ -1,37 +1,58 @@
-﻿using BSL.AST.Parsing;
+﻿using BSL.AST.Diagnostics;
+using BSL.AST.Parsing;
+using BSL.AST.Parsing.Preprocessing;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace BSL.AST.Lexing
 {
-    public partial class BslLexer
-    {
-        private BslKind _languageKind;
+    public class BslLexer
+	{
+		private readonly BslLexerOptions _options;
+		private readonly BslLexerState _state = new();
 
-		private int _currentPosition = 0;
-        private int _currentColumn = 0;
-        private int _currentLine = 1;
-        private readonly List<BslToken> _tokens = [];
-        private List<BslTrivia> _leadingTrivias = [];
-        private bool _readMultilineString = false;
-        private int _countedQuotes = 0;
+		private readonly List<BslToken> _tokens = [];
 
-		public IReadOnlyList<BslToken> Tokenize(ReadOnlySpan<char> source, BslKind bslKind = BslKind.OneC)
+		private readonly List<Diagnostic> _diagnostics = [];
+		public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics;
+
+		private readonly List<Region> _regions = [];
+		public IReadOnlyList<Region> Regions => _regions;
+
+		private readonly List<Using> _usings = [];
+		public IReadOnlyList<Using> Usings => _usings;
+
+		private readonly List<Insert> _inserts = [];
+		public IReadOnlyList<Insert> Inserts => _inserts;
+
+		private readonly List<Delete> _deletes = [];
+		public IReadOnlyList<Delete> Deletes => _deletes;
+
+		public bool IsNative { get; internal set; } = false;
+
+		public BslLexer(BslLexerOptions options)
+		{
+			_options = options;
+
+			_state.CompileContexts.Add([_options.CompileContexts]);
+			_state.CurrentCompileContext = _options.CompileContexts;
+		}
+
+		public IReadOnlyList<BslToken> Tokenize(ReadOnlySpan<char> source)
         {
-            _languageKind = bslKind;
-
-			while (_currentPosition < source.Length)
+			while (_state.CurrentPosition < source.Length)
             {
-				_leadingTrivias = Trivias(source);
+				_state.LeadingTrivias = Trivias(source);
 
-				if (_currentPosition == source.Length)
+				if (_state.CurrentPosition == source.Length)
                     break;
 
-                var peek = source[_currentPosition];
+                var peek = source[_state.CurrentPosition];
 
-                if (_readMultilineString || peek == '"')
+                if (_state.ReadMultilineString || peek == '"')
                     _tokens.Add(StringLiteral(source));
 				else if (peek == '.')
 					AddSimpleToken(source, TokenType.DOT);
@@ -93,13 +114,13 @@ namespace BSL.AST.Lexing
 				else if (TryGetCharSequence(source, out var position))
                 {
                     if (TryGetKeyword(source, position, out var token))
-                        _tokens.Add(token);
+                        _tokens.Add(token!);
                     else if (TryGetBooleanLiteral(source, position, out token))
-                        _tokens.Add(token);
+                        _tokens.Add(token!);
                     else if (TryGetUndefinedLiteral(source, position, out token))
-                        _tokens.Add(token);
+                        _tokens.Add(token!);
                     else if (TryGetNullLiteral(source, position, out token))
-                        _tokens.Add(token);
+                        _tokens.Add(token!);
                     else
                         _tokens.Add(GetIdentifier(source, position));
                 }
@@ -107,73 +128,78 @@ namespace BSL.AST.Lexing
                     AddUnknownToken(source, position);
 
                 var lastToken = _tokens[^1];
+				lastToken.CompileContext = _state.CurrentCompileContext;
 
-				lastToken.LeadingTrivias = _leadingTrivias;
+				lastToken.LeadingTrivias = _state.LeadingTrivias;
 				lastToken.TrailingTrivias = Trivias(source, true);
 			}
 
-			var eofToken = new BslToken("", TokenType.EOF, new SourcePosition(_currentPosition, _currentPosition, _currentLine, _currentColumn))
+			var eofToken = new BslToken("", TokenType.EOF, new SourcePosition(_state.CurrentPosition, _state.CurrentPosition, _state.CurrentLine, _state.CurrentColumn))
 			{
-				LeadingTrivias = _leadingTrivias
+				CompileContext = BslCompileContexts.All,
+				LeadingTrivias = _state.LeadingTrivias
 			};
 			_tokens.Add(eofToken);
+
+			foreach (var region in _state.Regions)
+				_diagnostics.Add(SyntaxDiagnosticsFactory.EndRegionExpected(region.StartTrivia.Position));
 
 			return _tokens;
         }
 
         private BslToken StringLiteral(ReadOnlySpan<char> source)
         {
-			var startPosition = _currentPosition;
-			var startColumn = _currentColumn;
-			var line = _currentLine;
+			var startPosition = _state.CurrentPosition;
+			var startColumn = _state.CurrentColumn;
+			var line = _state.CurrentLine;
 
             var endOffset = 0;
 
-			while (_currentPosition < source.Length)
+			while (_state.CurrentPosition < source.Length)
 			{
-				if (source[_currentPosition] == '\r')
+				if (source[_state.CurrentPosition] == '\r')
                 {
-                    _readMultilineString = true;
+                    _state.ReadMultilineString = true;
 					break;
 				}
 
 				var nextCh = NextChar(source);
 
-				if (source[_currentPosition] == '"')
-					_countedQuotes++;
+				if (source[_state.CurrentPosition] == '"')
+					_state.CountedQuotes++;
 
-				_currentPosition++;
-				_currentColumn++;
+				_state.CurrentPosition++;
+				_state.CurrentColumn++;
 
-				if (_countedQuotes > 1 && _countedQuotes % 2 == 0 && nextCh != '"')
+				if (_state.CountedQuotes > 1 && _state.CountedQuotes % 2 == 0 && nextCh != '"')
                 {
                     endOffset = 1;
-					_readMultilineString = false;
+					_state.ReadMultilineString = false;
 					break;
 				}
 			}
 
-            if (!_readMultilineString)
-                _countedQuotes = 0;
+            if (!_state.ReadMultilineString)
+				_state.CountedQuotes = 0;
 
-			var position = new SourcePosition(startPosition, _currentPosition, line, startColumn);
-			var value = source[(startPosition + 1)..(_currentPosition - endOffset)];
+			var position = new SourcePosition(startPosition, _state.CurrentPosition, line, startColumn);
+			var value = source[(startPosition + 1)..(_state.CurrentPosition - endOffset)];
 
 			return new(value.ToString().Replace("\"\"", "\""), TokenType.STRING, position);
         }
 
 		private BslToken DateTimeLiteral(ReadOnlySpan<char> source)
         {
-			var startPosition = _currentPosition;
-			var startColumn = _currentColumn;
+			var startPosition = _state.CurrentPosition;
+			var startColumn = _state.CurrentColumn;
             var started = false;
 
-			while (_currentPosition < source.Length)
+			while (_state.CurrentPosition < source.Length)
 			{
-                var ch = source[_currentPosition];
+                var ch = source[_state.CurrentPosition];
 
-				_currentPosition++;
-				_currentColumn++;
+				_state.CurrentPosition++;
+				_state.CurrentColumn++;
 
 				if (ch == '\'' && !started)
                 {
@@ -185,33 +211,33 @@ namespace BSL.AST.Lexing
                     break;
 			}
 
-			var position = new SourcePosition(startPosition, _currentPosition, _currentLine, startColumn);
-			var value = source[startPosition.._currentPosition];
+			var position = new SourcePosition(startPosition, _state.CurrentPosition, _state.CurrentLine, startColumn);
+			var value = source[startPosition.._state.CurrentPosition];
 
 			return new(value.ToString(), TokenType.DATE, position);
         }
 
         private bool TryGetCharSequence(ReadOnlySpan<char> source, out SourcePosition position)
         {
-            var startPosition = _currentPosition;
-			var startColumn = _currentColumn;
+            var startPosition = _state.CurrentPosition;
+			var startColumn = _state.CurrentColumn;
 
-			while (_currentPosition < source.Length)
+			while (_state.CurrentPosition < source.Length)
             {
-                var ch = source[_currentPosition];
+                var ch = source[_state.CurrentPosition];
 
                 if (char.IsLetterOrDigit(ch) || ch == '_')
                 {
-					_currentPosition++;
-					_currentColumn++;
+					_state.CurrentPosition++;
+					_state.CurrentColumn++;
 				}
 				else
                     break;
             }
 
-            if (startPosition != _currentPosition)
+            if (startPosition != _state.CurrentPosition)
             {
-				position = new SourcePosition(startPosition, _currentPosition, _currentLine, startColumn);
+				position = new SourcePosition(startPosition, _state.CurrentPosition, _state.CurrentLine, startColumn);
                 return true;
 			}
 
@@ -219,7 +245,7 @@ namespace BSL.AST.Lexing
             return false;
         }
 
-        private static bool TryGetBooleanLiteral(ReadOnlySpan<char> source, SourcePosition position, out BslToken token)
+        private static bool TryGetBooleanLiteral(ReadOnlySpan<char> source, SourcePosition position, out BslToken? token)
         {
             var charSequence = source[position.StartPosition..position.EndPosition];
 
@@ -234,36 +260,36 @@ namespace BSL.AST.Lexing
 				return true;
             }
 
-            token = default;
+            token = null;
 
             return false;
         }
 
         private BslToken NumericLiteral(ReadOnlySpan<char> source)
         {
-            var startPosition = _currentPosition;
-			var startColumn = _currentColumn;
+            var startPosition = _state.CurrentPosition;
+			var startColumn = _state.CurrentColumn;
 
-			while (_currentPosition < source.Length)
+			while (_state.CurrentPosition < source.Length)
             {
-                var c = source[_currentPosition];
+                var c = source[_state.CurrentPosition];
 
                 if (char.IsDigit(c) || c == '.')
 				{
-					_currentPosition++;
-					_currentColumn++;
+					_state.CurrentPosition++;
+					_state.CurrentColumn++;
 				}
 				else
                     break;
             }
 
-            var position = new SourcePosition(startPosition, _currentPosition, _currentLine, startColumn);
+            var position = new SourcePosition(startPosition, _state.CurrentPosition, _state.CurrentLine, startColumn);
             var value = source[position.StartPosition..position.EndPosition];
 
             return new(value.ToString(), TokenType.NUMBER, position);
         }
 
-        private static bool TryGetUndefinedLiteral(ReadOnlySpan<char> source, SourcePosition position, out BslToken token)
+        private static bool TryGetUndefinedLiteral(ReadOnlySpan<char> source, SourcePosition position, out BslToken? token)
         {
             var charSequence = source[position.StartPosition..position.EndPosition];
 
@@ -273,12 +299,12 @@ namespace BSL.AST.Lexing
                 return true;
             }
 
-            token = default;
+            token = null;
 
             return false;
         }
 
-        private static bool TryGetNullLiteral(ReadOnlySpan<char> source, SourcePosition position, out BslToken token)
+        private static bool TryGetNullLiteral(ReadOnlySpan<char> source, SourcePosition position, out BslToken? token)
         {
             var charSequence = source[position.StartPosition..position.EndPosition];
 
@@ -288,12 +314,12 @@ namespace BSL.AST.Lexing
                 return true;
             }
 
-            token = default;
+            token = null;
 
             return false;
         }
 
-        private static bool TryGetKeyword(ReadOnlySpan<char> source, SourcePosition position, out BslToken token)
+        private static bool TryGetKeyword(ReadOnlySpan<char> source, SourcePosition position, out BslToken? token)
         {
             var charSequence = source[position.StartPosition..position.EndPosition];
 
@@ -370,7 +396,7 @@ namespace BSL.AST.Lexing
 
 			if (type == null)
             {
-				token = default;
+				token = null;
                 return false;
 			}
             else
@@ -391,23 +417,23 @@ namespace BSL.AST.Lexing
 		{
             if (position.Equals(default))
             {
-                var startPosition = _currentPosition;
-                var startColumn = _currentColumn;
+                var startPosition = _state.CurrentPosition;
+                var startColumn = _state.CurrentColumn;
 
-				while (_currentPosition < source.Length)
+				while (_state.CurrentPosition < source.Length)
 				{
-					var c = source[_currentPosition];
+					var c = source[_state.CurrentPosition];
 
 					if (c == ';' || c == '\r')
 						break;
 					else
                     {
-						_currentPosition++;
-						_currentColumn++;
+						_state.CurrentPosition++;
+						_state.CurrentColumn++;
 					}
 				}
 
-                position = new SourcePosition(startPosition, _currentPosition, _currentLine, startColumn);
+                position = new SourcePosition(startPosition, _state.CurrentPosition, _state.CurrentLine, startColumn);
 			}
 
 			var value = source[position.StartPosition..position.EndPosition];
@@ -417,16 +443,16 @@ namespace BSL.AST.Lexing
 		}
 
         private char NextChar(ReadOnlySpan<char> source)
-            => _currentPosition + 1 >= source.Length ? '\0' : source[_currentPosition + 1];
+            => _state.CurrentPosition + 1 >= source.Length ? '\0' : source[_state.CurrentPosition + 1];
 
         private void AddSimpleToken(ReadOnlySpan<char> source, TokenType tokenType, int length = 1)
         {
-            var startPosition = _currentPosition;
-            var startColumn = _currentColumn;
-            _currentPosition += length;
-			_currentColumn += length;
+            var startPosition = _state.CurrentPosition;
+            var startColumn = _state.CurrentColumn;
+            _state.CurrentPosition += length;
+			_state.CurrentColumn += length;
 
-			var position = new SourcePosition(startPosition, _currentPosition, _currentLine, startColumn);
+			var position = new SourcePosition(startPosition, _state.CurrentPosition, _state.CurrentLine, startColumn);
 
 			var value = source[position.StartPosition..position.EndPosition];
 			_tokens.Add(new BslToken(value.ToString(), tokenType, position));
@@ -436,9 +462,9 @@ namespace BSL.AST.Lexing
         {
             var items = new List<BslTrivia>();
 
-            while (_currentPosition < source.Length)
+            while (_state.CurrentPosition < source.Length)
             {
-                var peek = source[_currentPosition];
+                var peek = source[_state.CurrentPosition];
 
                 if (peek == '\r')
                 {
@@ -462,23 +488,23 @@ namespace BSL.AST.Lexing
 
 		private void WhiteSpaceTrivia(ReadOnlySpan<char> source, List<BslTrivia> trivias)
 		{
-			var startPosition = _currentPosition;
-			var startColumn = _currentColumn;
+			var startPosition = _state.CurrentPosition;
+			var startColumn = _state.CurrentColumn;
 
-			while (_currentPosition < source.Length)
+			while (_state.CurrentPosition < source.Length)
 			{
-				var c = source[_currentPosition];
+				var c = source[_state.CurrentPosition];
 
 				if (char.IsWhiteSpace(c) && c != '\r')
 				{
-					_currentPosition++;
-					_currentColumn++;
+					_state.CurrentPosition++;
+					_state.CurrentColumn++;
 				}
 				else
 					break;
 			}
 
-			var position = new SourcePosition(startPosition, _currentPosition, _currentLine, startColumn);
+			var position = new SourcePosition(startPosition, _state.CurrentPosition, _state.CurrentLine, startColumn);
 			var value = source[position.StartPosition..position.EndPosition];
 
 			trivias.Add(new(BslTriviaKind.WhiteSpace, value.ToString(), position));
@@ -486,17 +512,17 @@ namespace BSL.AST.Lexing
 
 		private void EndOfLineTrivia(ReadOnlySpan<char> source, List<BslTrivia> trivias)
 		{
-			var startPosition = _currentPosition;
-			var startColumn = _currentColumn;
+			var startPosition = _state.CurrentPosition;
+			var startColumn = _state.CurrentColumn;
 
 			if (NextChar(source) == '\n')
-				_currentPosition++;
+				_state.CurrentPosition++;
 
-			_currentPosition++;
+			_state.CurrentPosition++;
 
-			var position = new SourcePosition(startPosition, _currentPosition, _currentLine, startColumn);
-			_currentLine++;
-			_currentColumn = 0;
+			var position = new SourcePosition(startPosition, _state.CurrentPosition, _state.CurrentLine, startColumn);
+			_state.CurrentLine++;
+			_state.CurrentColumn = 0;
 
 			var value = source[position.StartPosition..position.EndPosition];
 
@@ -505,20 +531,20 @@ namespace BSL.AST.Lexing
 
 		private void CommentTrivia(ReadOnlySpan<char> source, List<BslTrivia> trivias)
 		{
-			var startPosition = _currentPosition;
-			var startColumn = _currentColumn;
-			var line = _currentLine;
+			var startPosition = _state.CurrentPosition;
+			var startColumn = _state.CurrentColumn;
+			var line = _state.CurrentLine;
 
-			while (_currentPosition < source.Length)
+			while (_state.CurrentPosition < source.Length)
 			{
-				if (source[_currentPosition] == '\r')
+				if (source[_state.CurrentPosition] == '\r')
 					break;
 
-				_currentPosition++;
-				_currentColumn++;
+				_state.CurrentPosition++;
+				_state.CurrentColumn++;
 			}
 
-			var position = new SourcePosition(startPosition, _currentPosition, line, startColumn);
+			var position = new SourcePosition(startPosition, _state.CurrentPosition, line, startColumn);
 			var value = source[position.StartPosition..position.EndPosition];
 
             trivias.Add(new(BslTriviaKind.Comment, value.ToString(), position));
@@ -526,20 +552,20 @@ namespace BSL.AST.Lexing
 
         private void PreprocessingTrivia(ReadOnlySpan<char> source, List<BslTrivia> trivias)
         {
-			var startPosition = _currentPosition;
-			var startColumn = _currentColumn;
-			var line = _currentLine;
+			var startPosition = _state.CurrentPosition;
+			var startColumn = _state.CurrentColumn;
+			var line = _state.CurrentLine;
 
-			while (_currentPosition < source.Length)
+			while (_state.CurrentPosition < source.Length)
 			{
-				if (source[_currentPosition] == '\r')
+				if (source[_state.CurrentPosition] == '\r')
 					break;
 
-				_currentPosition++;
-				_currentColumn++;
+				_state.CurrentPosition++;
+				_state.CurrentColumn++;
 			}
 
-			var position = new SourcePosition(startPosition, _currentPosition, line, startColumn);
+			var position = new SourcePosition(startPosition, _state.CurrentPosition, line, startColumn);
 			var value = source[position.StartPosition..position.EndPosition];
 
             var preprocessorText = value[1..];
@@ -550,38 +576,133 @@ namespace BSL.AST.Lexing
 				var startText = preprocessorText[startTextRange];
 
 				if (ParserHelper.BilingualTokenValueIs(startText, "ОБЛАСТЬ", "REGION"))
-					trivias.Add(new(BslTriviaKind.RegionDirective, preprocessorText[startTextRange.End.Value..].Trim().ToString(), position));
+				{
+					var trivia = new BslTrivia(BslTriviaKind.RegionDirective, preprocessorText[startTextRange.End.Value..].Trim().ToString(), position);
+					trivias.Add(trivia);
+
+					_state.Regions.Push(new Region()
+					{
+						StartTrivia = trivia,
+						Name = trivia.Value
+					});
+				}
 				else if (ParserHelper.BilingualTokenValueIs(startText, "КОНЕЦОБЛАСТИ", "ENDREGION"))
-					trivias.Add(new(BslTriviaKind.EndRegionDirective, preprocessorText.ToString(), position));
-                else
+				{
+					var trivia = new BslTrivia(BslTriviaKind.EndRegionDirective, preprocessorText.ToString(), position);
+					trivias.Add(trivia);
+
+					if (_state.Regions.TryPop(out var region))
+					{
+						region.FinishTrivia = trivia;
+						_regions.Add(region);
+					}
+					else
+						_diagnostics.Add(SyntaxDiagnosticsFactory.UnexpectedEndRegion(trivia.Position));
+				}
+				else if (ParserHelper.BilingualTokenValueIs(startText, "ЕСЛИ", "IF"))
+				{
+					trivias.Add(new(BslTriviaKind.IfPreprocessorTrivia, preprocessorText.ToString(), position));
+					SetCompileContext(preprocessorText, true);
+				}
+				else if (ParserHelper.BilingualTokenValueIs(startText, "ИНАЧЕЕСЛИ", "ELSIF"))
+				{
+					trivias.Add(new(BslTriviaKind.ElseIfPreprocessorTrivia, preprocessorText.ToString(), position));
+					SetCompileContext(preprocessorText, false);
+				}
+				else if (ParserHelper.BilingualTokenValueIs(startText, "ИНАЧЕ", "ELSE"))
+				{
+					trivias.Add(new(BslTriviaKind.ElsePreprocessorTrivia, preprocessorText.ToString(), position));
+
+					var contexts = _state.CompileContexts[^1];
+					var previousContexts = _state.CompileContexts[^2];
+
+					var accumulatedContexts = previousContexts[^1];
+					foreach (var context in contexts)
+						accumulatedContexts ^= context;
+
+					_state.CurrentCompileContext = accumulatedContexts;
+					contexts.Add(_state.CurrentCompileContext);
+				}
+				else if (ParserHelper.BilingualTokenValueIs(startText, "КОНЕЦЕСЛИ", "ENDIF"))
+				{
+					trivias.Add(new(BslTriviaKind.EndIfPreprocessorTrivia, preprocessorText.ToString(), position));
+
+					_state.CompileContexts.RemoveAt(_state.CompileContexts.Count - 1);
+					_state.CurrentCompileContext = _state.CompileContexts[^1][^1]; // Просто сбросим контекст на предыдущий
+				}
+				else
                 {
-                    if (_languageKind == BslKind.OneC)
+                    if (_options.LanguageKind == BslKind.OneC)
                     {
-						if (ParserHelper.BilingualTokenValueIs(startText, "ЕСЛИ", "IF"))
-							trivias.Add(new(BslTriviaKind.IfDirective, preprocessorText.ToString(), position));
-						else if (ParserHelper.BilingualTokenValueIs(startText, "ИНАЧЕЕСЛИ", "ELSIF"))
-							trivias.Add(new(BslTriviaKind.ElseIfDirective, preprocessorText.ToString(), position));
-						else if (ParserHelper.BilingualTokenValueIs(startText, "ИНАЧЕ", "ELSE"))
-							trivias.Add(new(BslTriviaKind.ElseDirective, preprocessorText.ToString(), position));
-						else if (ParserHelper.BilingualTokenValueIs(startText, "КОНЕЦЕСЛИ", "ENDIF"))
-							trivias.Add(new(BslTriviaKind.EndIfDirective, preprocessorText.ToString(), position));
-						else if (ParserHelper.BilingualTokenValueIs(startText, "ВСТАВКА", "INSERT"))
-							trivias.Add(new(BslTriviaKind.InsertDirective, preprocessorText.ToString(), position));
+						if (ParserHelper.BilingualTokenValueIs(startText, "ВСТАВКА", "INSERT"))
+						{
+							var trivia = new BslTrivia(BslTriviaKind.InsertDirective, preprocessorText.ToString(), position);
+							trivias.Add(trivia);
+
+							_state.Inserts.Push(new Insert()
+							{
+								StartTrivia = trivia
+							});
+						}	
 						else if (ParserHelper.BilingualTokenValueIs(startText, "КОНЕЦВСТАВКИ", "ENDINSERT"))
-							trivias.Add(new(BslTriviaKind.EndInsertDirective, preprocessorText.ToString(), position));
+						{
+							var trivia = new BslTrivia(BslTriviaKind.EndInsertDirective, preprocessorText.ToString(), position);
+							trivias.Add(trivia);
+
+							if (_state.Inserts.TryPop(out var insert))
+							{
+								insert.FinishTrivia = trivia;
+								_inserts.Add(insert);
+							}
+							else
+								_diagnostics.Add(SyntaxDiagnosticsFactory.UnexpectedEndInsert(trivia.Position));
+						}
 						else if (ParserHelper.BilingualTokenValueIs(startText, "УДАЛЕНИЕ", "DELETE"))
-							trivias.Add(new(BslTriviaKind.DeleteDirective, preprocessorText.ToString(), position));
+						{
+							var trivia = new BslTrivia(BslTriviaKind.DeleteDirective, preprocessorText.ToString(), position);
+							trivias.Add(trivia);
+
+							_state.Deletes.Push(new Delete()
+							{
+								StartTrivia = trivia
+							});
+						}
 						else if (ParserHelper.BilingualTokenValueIs(startText, "КОНЕЦУДАЛЕНИЯ", "ENDDELETE"))
-							trivias.Add(new(BslTriviaKind.EndDeleteDirective, preprocessorText.ToString(), position));
+						{
+							var trivia = new BslTrivia(BslTriviaKind.EndDeleteDirective, preprocessorText.ToString(), position);
+							trivias.Add(trivia);
+
+							if (_state.Deletes.TryPop(out var item))
+							{
+								item.FinishTrivia = trivia;
+								_deletes.Add(item);
+							}
+							else
+								_diagnostics.Add(SyntaxDiagnosticsFactory.UnexpectedEndDelete(trivia.Position));
+						}
                         else
 							trivias.Add(new(BslTriviaKind.UnknownDirective, value.ToString(), position));
 					}
                     else
                     {
 						if (ParserHelper.BilingualTokenValueIs(startText, "ИСПОЛЬЗОВАТЬ", "USE"))
-							trivias.Add(new(BslTriviaKind.UseDirective, preprocessorText[startTextRange.End.Value..].Trim().ToString(), position));
+						{
+							var trivia = new BslTrivia(BslTriviaKind.UseDirective, preprocessorText[startTextRange.End.Value..].Trim().ToString(), position);
+							trivias.Add(trivia);
+
+							_usings.Add(new Using()
+							{
+								Trivia = trivia,
+								Path = trivia.Value
+							});
+						}
 						else if (ParserHelper.BilingualTokenValueIs(startText, "NATIVE", "NATIVE"))
-							trivias.Add(new(BslTriviaKind.Native, preprocessorText.ToString(), position));
+						{
+							var trivia = new BslTrivia(BslTriviaKind.Native, preprocessorText.ToString(), position);
+							trivias.Add(trivia);
+
+							IsNative = true;
+						}
 						else
 							trivias.Add(new(BslTriviaKind.UnknownDirective, value.ToString(), position));
 					}
@@ -589,6 +710,23 @@ namespace BSL.AST.Lexing
 			}
             else
 				trivias.Add(new(BslTriviaKind.UnknownDirective, value.ToString(), position));
+		}
+
+		private void SetCompileContext(ReadOnlySpan<char> preprocessorCondition, bool isIf)
+		{
+			var (Context, Errors) = BslDirectiveConditionCompiler.Compile(preprocessorCondition, new BslParserOptions()
+			{
+				LanguageKind = _options.LanguageKind
+			});
+			_state.CurrentCompileContext = Context;
+
+			if (Errors.Count > 0)
+				_diagnostics.AddRange(Errors);
+
+			if (isIf)
+				_state.CompileContexts.Add([_state.CurrentCompileContext]);
+			else
+				_state.CompileContexts[^1].Add(Context);
 		}
 	}
 }

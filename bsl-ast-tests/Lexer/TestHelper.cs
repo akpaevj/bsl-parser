@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using BSL.AST.Lexing;
 using BSL.AST.Parsing;
+using BSL.AST.Parsing.Preprocessing;
 
 namespace BSL.AST.Tests.Lexer
 {
@@ -24,7 +25,11 @@ namespace BSL.AST.Tests.Lexer
 
         internal static void CheckSingleToken(string source, TokenType expectedTokenType, string expectedValue)
         {
-			var lexer = new BslLexer();
+			var lexer = new BslLexer(new BslLexerOptions()
+			{
+				CompileContexts = BslCompileContexts.All,
+				LanguageKind = BslKind.OneC
+			});
 			var tokens = lexer.Tokenize(source);
 
             Assert.Equal(expectedTokenType == TokenType.EOF ? 1 : 2, tokens.Count);
@@ -38,9 +43,31 @@ namespace BSL.AST.Tests.Lexer
             Assert.Equal(1, token.Position.Line);
         }
 
+		internal static void CheckSingleTokenWithoutValue(string source, TokenType expectedTokenType)
+		{
+			var lexer = new BslLexer(new BslLexerOptions()
+			{
+				CompileContexts = BslCompileContexts.All,
+				LanguageKind = BslKind.OneC
+			});
+			var tokens = lexer.Tokenize(source);
+
+			Assert.Equal(expectedTokenType == TokenType.EOF ? 1 : 2, tokens.Count);
+			var token = tokens[0];
+
+			Assert.Equal(expectedTokenType, token.Type);
+			Assert.Equal(0, token.Position.StartPosition);
+			Assert.Equal(source.Length, token.Position.EndPosition);
+			Assert.Equal(1, token.Position.Line);
+		}
+
 		internal static void CheckMultiline(string source, params string[] expectedValues)
 		{
-			var lexer = new BslLexer();
+			var lexer = new BslLexer(new BslLexerOptions()
+			{
+				CompileContexts = BslCompileContexts.All,
+				LanguageKind = BslKind.OneC
+			});
 			var tokens = lexer.Tokenize(source);
 
             var stringTokens = tokens.Where(c => c.Type == TokenType.STRING).ToList();
@@ -51,8 +78,12 @@ namespace BSL.AST.Tests.Lexer
 
 		internal static void CheckSingleTrivia(string source, BslTriviaKind triviaKind, TokenType expectedTokenType, string expectedValue, int line = 1, BslKind bslKind = BslKind.OneC, bool leading = true)
 		{
-			var lexer = new BslLexer();
-			var tokens = lexer.Tokenize(source, bslKind);
+			var lexer = new BslLexer(new BslLexerOptions()
+			{
+				CompileContexts = BslCompileContexts.All,
+				LanguageKind = bslKind
+			});
+			var tokens = lexer.Tokenize(source);
 
 			Assert.Equal(expectedTokenType == TokenType.EOF ? 1 : 2, tokens.Count);
 			var token = tokens[0];
@@ -64,19 +95,5 @@ namespace BSL.AST.Tests.Lexer
 			Assert.Equal(expectedTokenType, token.Type);
 			Assert.Equal(line, token.Position.Line);
 		}
-
-		internal static void CheckSingleTokenWithoutValue(string source, TokenType expectedTokenType)
-        {
-            var lexer = new BslLexer();
-            var tokens = lexer.Tokenize(source);
-
-			Assert.Equal(expectedTokenType == TokenType.EOF ? 1 : 2, tokens.Count);
-			var token = tokens[0];
-
-			Assert.Equal(expectedTokenType, token.Type);
-            Assert.Equal(0, token.Position.StartPosition);
-            Assert.Equal(source.Length, token.Position.EndPosition);
-            Assert.Equal(1, token.Position.Line);
-        }
     }
 }

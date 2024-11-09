@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "bsl-ast", "bsl-ast\bsl-ast.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "bsl-ast-tests", "bsl-ast-tests\bsl-ast-tests.csproj", "{828B9180-1D8D-4D5F-B389-46DC48F29781}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "bsl-ast-test-app", "..\bsl-ast-test-app\bsl-ast-test-app.csproj", "{0FEF9413-7406-4909-9749-EA37D1F6C9A0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{828B9180-1D8D-4D5F-B389-46DC48F29781}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{828B9180-1D8D-4D5F-B389-46DC48F29781}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{828B9180-1D8D-4D5F-B389-46DC48F29781}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0FEF9413-7406-4909-9749-EA37D1F6C9A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0FEF9413-7406-4909-9749-EA37D1F6C9A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0FEF9413-7406-4909-9749-EA37D1F6C9A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0FEF9413-7406-4909-9749-EA37D1F6C9A0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

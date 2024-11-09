@@ -1,5 +1,6 @@
 ﻿using BSL.AST.Parsing;
 using BSL.AST.Parsing.Nodes;
+using BSL.AST.Parsing.Nodes.Expressions;
 using BSL.AST.Parsing.Nodes.Expressions.Literals;
 
 namespace BSL.AST.Tests.Parser
@@ -12,8 +13,11 @@ namespace BSL.AST.Tests.Parser
 		[Fact]
 		public void NewObjectExpressionTest()
 		{
-			var source = "А = Новый Объект().Привет();";
-			TestHelper.ModuleNodeTest(source, false, BslKind.OneScript);
+			var source = "Новый Объект().Привет()";
+			TestHelper.ExpressionNodeTest<AccessMemberExpressionNode>(source, node =>
+			{
+				Assert.IsType<NewObjectExpressionNode>(node.Left);
+			}, BslKind.OneScript);
 		}
 
 		[Fact]
@@ -24,7 +28,7 @@ namespace BSL.AST.Tests.Parser
 				Процедура Расш1_ПолучитьИдентификатор()
 				КонецПроцедуры";
 
-			var module = TestHelper.ModuleNodeTest(source, false, BslKind.OneScript);
+			var module = TestHelper.OscriptModuleTest(source);
 			var child = Assert.Single(module.Children);
 
 			var procedure = Assert.IsType<MethodNode>(child);
@@ -45,7 +49,7 @@ namespace BSL.AST.Tests.Parser
 				Процедура Расш1_ПолучитьИдентификатор()
 				КонецПроцедуры";
 
-			var module = TestHelper.ModuleNodeTest(source, false, BslKind.OneScript);
+			var module = TestHelper.OscriptModuleTest(source);
 			var child = Assert.Single(module.Children);
 
 			var procedure = Assert.IsType<MethodNode>(child);
@@ -57,21 +61,6 @@ namespace BSL.AST.Tests.Parser
 			Assert.Equal("Параметр", parameter.NameToken!.Text);
 			var valueExpression = Assert.IsType<NumberLiteralExpressionNode>(parameter.ValueExpression);
 			Assert.Equal(1, valueExpression.Value);
-		}
-
-		[Fact]
-		public void MultipleMethodsTest()
-		{
-			var source =
-				@"Функция Идентификатор()
-					Возврат 1;
-				КонецФункции
-				
-				Функция ПолучитьИдентификатор()
-					Возврат Идентификатор();
-				КонецФункции";
-
-			TestHelper.ModuleNodeTest(source);
 		}
 	}
 }
