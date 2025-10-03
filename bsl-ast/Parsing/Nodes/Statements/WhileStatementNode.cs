@@ -5,10 +5,10 @@ namespace BSL.AST.Parsing.Nodes.Statements
 {
 	public class WhileStatementNode(BslNode parent) : StatementNode(parent)
 	{
-		public BslToken WhileKeyword { get; internal set; } = default;
+		public BslToken WhileKeyword { get; internal set; } = null!;
 		public ExpressionNode Condition { get; internal set; } = null!;
-		public BslToken DoKeyword { get; internal set; } = default;
+		public BslToken DoKeyword { get; internal set; } = null!;
 		public BlockNode Body { get; internal set; } = null!;
-		public BslToken EndDoKeyword { get; internal set; } = default;
+		public BslToken EndDoKeyword { get; internal set; } = null!;
 	}
 }

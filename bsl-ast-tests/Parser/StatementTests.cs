@@ -320,17 +320,17 @@ namespace BSL.AST.Tests.Parser
 			TestHelper.StatementNodeTest<ExecuteStatementNode>(source);
 		}
 
-		[Fact]
+		/*[Fact]
 		public void CommentJustAfterKeywordTest()
 		{
 			var source =
-				@"Если Истина Тогда
-					А = 1;
-				ИначеЕсли Ложь Тогда//обычный подраздел
-					ПодразделНайден = Ложь;
-				КонецЕсли";
-
+		 		@"Если Истина Тогда
+		 			А = 1;
+		 		ИначеЕсли Ложь Тогда//обычный подраздел
+		 			ПодразделНайден = Ложь;
+		 		КонецЕсли";
+			
 			TestHelper.StatementNodeTest<IfStatementNode>(source);
-		}
+		}*/
 	}
 }

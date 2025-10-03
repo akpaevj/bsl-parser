@@ -39,11 +39,11 @@ namespace BSL.AST.Tests.Lexer
 
 		[Fact]
         public void TrueBooleanLiteral()
-            => TestHelper.CheckBilingualSingleTokenWithoutValue("»ÒÚËÌ‡", "True", TokenType.TRUE);
+            => TestHelper.CheckBilingualSingleTokenWithoutValue("–ò—Å—Ç–∏–Ω–∞", "True", TokenType.TRUE);
 
         [Fact]
         public void FalseBooleanLiteral()
-            => TestHelper.CheckBilingualSingleTokenWithoutValue("ÀÓÊ¸", "False", TokenType.FALSE);
+            => TestHelper.CheckBilingualSingleTokenWithoutValue("–õ–æ–∂—å", "False", TokenType.FALSE);
 
         [Fact]
         public void NumberLiteral()
@@ -51,7 +51,7 @@ namespace BSL.AST.Tests.Lexer
 
 		[Fact]
         public void UndefinedLiteral()
-            => TestHelper.CheckBilingualSingleTokenWithoutValue("ÕÂÓÔÂ‰ÂÎÂÌÓ", "Undefined", TokenType.UNDEFINED);
+            => TestHelper.CheckBilingualSingleTokenWithoutValue("–ù–µ–æ–ø—Ä–µ–¥–µ–ª–µ–Ω–æ", "Undefined", TokenType.UNDEFINED);
 
         [Fact]
         public void NullLiteral()

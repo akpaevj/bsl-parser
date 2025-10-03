@@ -7,26 +7,18 @@ using BSL.AST.Parsing.Nodes.Expressions.Literals;
 using BSL.AST.Parsing.Nodes.Expressions.Logical;
 using BSL.AST.Parsing.Nodes.Statements;
 using BSL.AST.Parsing.Preprocessing;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Data;
 using System.Globalization;
-using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Xml.Linq;
 
 namespace BSL.AST.Parsing
 {
 	public class BslParser
     {
-		public const string DIAGNOSTICS_REPORTER_CODE = "BP";
+		public const string DiagnosticsReporterCode = "BP";
 
 		private BslParserOptions _options = null!;
 
-		private int _currentTokenIndex = 0;
+		private int _currentTokenIndex;
 		private IReadOnlyList<BslToken> _tokens = null!;
 		private BslParserState _state = new();
 
@@ -41,9 +33,9 @@ namespace BSL.AST.Parsing
 
 		public List<ModuleNode> ParseApplicationModule(ReadOnlySpan<char> source)
 		{
-			var compileContexts = BslCompileContexts.ThinClient | BslCompileContexts.WebClient | BslCompileContexts.ThickClientManagedApplication;
+			const BslCompileContexts compileContexts = BslCompileContexts.ThinClient | BslCompileContexts.WebClient | BslCompileContexts.ThickClientManagedApplication;
 
-			var modules = new List<ModuleNode>()
+			var modules = new List<ModuleNode>
 			{
 				ParseModule(source, options =>
 				{
@@ -216,7 +208,7 @@ namespace BSL.AST.Parsing
 				ProceduresAndFunctionsSectionAllowed = false,
 				LanguageKind = bslKind
 			};
-			_state = new();
+			_state = new BslParserState();
 			_currentTokenIndex = 0;
 
 			var lexer = new BslLexer(new BslLexerOptions()
@@ -250,7 +242,7 @@ namespace BSL.AST.Parsing
 				ProceduresAndFunctionsSectionAllowed = false,
 				LanguageKind = bslKind
 			};
-			_state = new();
+			_state = new BslParserState();
 			_currentTokenIndex = 0;
 
 			var lexer = new BslLexer(new BslLexerOptions()
@@ -276,7 +268,7 @@ namespace BSL.AST.Parsing
 		internal IfElseIfDirectiveNode ParseIfElseIfDirective(ReadOnlySpan<char> source, BslParserOptions options)
 		{
 			_options = options;
-			_state = new();
+			_state = new BslParserState();
 			_currentTokenIndex = 0;
 
 			var lexer = new BslLexer(new BslLexerOptions()
@@ -310,7 +302,7 @@ namespace BSL.AST.Parsing
 			_options = new BslParserOptions();
 			optionsBuilder(_options);
 
-			_state = new();
+			_state = new BslParserState();
 			_currentTokenIndex = 0;
 
 			var lexer = new BslLexer(new BslLexerOptions()
@@ -536,7 +528,7 @@ namespace BSL.AST.Parsing
 					RaiseKeword = raiseKeyword
 				};
 
-				if (PeekTokenType() != TokenType.SEMICOLON && !NextIsOperatorCloseParentOrEOF())
+				if (PeekTokenType() != TokenType.SEMICOLON && !NextIsOperatorCloseParentOrEof())
 					node.Expression = Expression(node);
 
 				node.SemicolonToken = ReadSemicolon();
@@ -623,7 +615,7 @@ namespace BSL.AST.Parsing
 				ReturnKeyword = ReadToken()
 			};
 
-			if (PeekTokenType() != TokenType.SEMICOLON && !NextIsOperatorCloseParentOrEOF())
+			if (PeekTokenType() != TokenType.SEMICOLON && !NextIsOperatorCloseParentOrEof())
 				node.Expression = Expression(node);
 
 			node.SemicolonToken = ReadSemicolon();
@@ -1226,7 +1218,7 @@ namespace BSL.AST.Parsing
 		}
 
 		private TokenType PeekTokenType(int offset = 0)
-			=> PeekToken(out var _, offset).Type;
+			=> PeekToken(out _, offset).Type;
 
 		private BslToken ReadToken()
 		{
@@ -1263,7 +1255,7 @@ namespace BSL.AST.Parsing
 		private BslToken? ReadSemicolon()
 		{
 			// Если сразу за предполагаемой точкой с запятой следует токен закрытия операторных скобок или конец файла, то точка с запятой может быть пропущена
-			if (NextIsOperatorCloseParentOrEOF())
+			if (NextIsOperatorCloseParentOrEof())
 				return null;
 			else
 				return ReadOrThrow(TokenType.SEMICOLON, t => SyntaxDiagnosticsFactory.SemicolonExpected(t.Position));
@@ -1278,20 +1270,20 @@ namespace BSL.AST.Parsing
 		private BslToken ReadThen()
 			=> ReadOrThrow(TokenType.THEN, t => SyntaxDiagnosticsFactory.ThenExpected(t.Position));
 
-		private bool NextIsOperatorCloseParentOrEOF()
+		private bool NextIsOperatorCloseParentOrEof()
 		{
 			var peek = PeekTokenType();
 
 			return
-				peek == TokenType.END_IF ||
-				peek == TokenType.END_DO ||
-				peek == TokenType.ELSE_IF ||
-				peek == TokenType.ELSE ||
-				peek == TokenType.END_FUNCTION ||
-				peek == TokenType.END_PROCEDURE ||
-				peek == TokenType.END_TRY ||
-				peek == TokenType.EXCEPT ||
-				peek == TokenType.EOF;
+				peek is TokenType.END_IF or 
+					TokenType.END_DO or 
+					TokenType.ELSE_IF or 
+					TokenType.ELSE or 
+					TokenType.END_FUNCTION or 
+					TokenType.END_PROCEDURE or 
+					TokenType.END_TRY or 
+					TokenType.EXCEPT or 
+					TokenType.EOF;
 		}
 
 		private bool NextIdentifierIsBilingualValue(string ru, string en)
